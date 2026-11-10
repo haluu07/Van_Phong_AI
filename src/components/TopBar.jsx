@@ -6,7 +6,9 @@ export default function TopBar({
   isTouring,
   setIsTouring,
   onOpenAssignTask,
-  metrics
+  onOpenAntigravityLive,
+  metrics,
+  isConnected = false
 }) {
   const [timeStr, setTimeStr] = useState('');
   const [isMuted, setIsMuted] = useState(false);
@@ -53,27 +55,27 @@ export default function TopBar({
           </div>
         </div>
 
-        {/* Các chip đếm số lượng nhân sự AI theo trạng thái (như trong ảnh mẫu) */}
+        {/* Các chip đếm số lượng nhân sự AI theo trạng thái */}
         <div className="hidden lg:flex items-center gap-2 glass-panel-subtle px-3 py-1.5 rounded-2xl text-xs font-medium text-slate-300">
           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            4 ngồi máy
+            {metrics?.working ?? 4} ngồi máy
           </span>
           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-            1 trò chuyện
+            {metrics?.chat ?? 1} trò chuyện
           </span>
           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20">
             <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-            3 giải trí
+            {metrics?.gaming ?? 3} giải trí
           </span>
           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/20">
             <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-            2 nghỉ
+            {metrics?.idle ?? 2} nghỉ
           </span>
           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/20">
             <span className="w-2 h-2 rounded-full bg-rose-400"></span>
-            4 vắng/đang đi
+            {metrics?.away ?? 4} vắng/đang đi
           </span>
         </div>
       </div>
@@ -88,10 +90,24 @@ export default function TopBar({
         </div>
 
         {/* Trạng thái kết nối */}
-        <div className="hidden sm:flex items-center gap-1.5 glass-panel px-3 py-1.5 rounded-2xl text-xs font-semibold text-emerald-400">
-          <Wifi className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-          <span>Đã kết nối tác vụ</span>
+        <div className={`hidden sm:flex items-center gap-1.5 glass-panel px-3 py-1.5 rounded-2xl text-xs font-semibold ${
+          isConnected ? 'text-emerald-400' : 'text-amber-400'
+        }`}>
+          <Wifi className={`w-3.5 h-3.5 ${isConnected ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
+          <span>{isConnected ? 'API Realtime Online' : 'Chờ kết nối Backend...'}</span>
         </div>
+
+        {/* Nút Antigravity Live Hub */}
+        <button
+          onClick={() => {
+            soundManager.playPop();
+            onOpenAntigravityLive && onOpenAntigravityLive();
+          }}
+          className="px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-violet-500/25 hover:scale-[1.03] transition-all border border-violet-400/30"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>⚡ Antigravity Live</span>
+        </button>
 
         {/* Nút Giao việc */}
         <button

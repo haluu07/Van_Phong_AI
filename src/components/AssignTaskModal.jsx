@@ -34,7 +34,9 @@ export default function AssignTaskModal({
       id: 'task_' + Date.now(),
       title: taskTitle.trim(),
       roomName: currentRoom?.name || 'Văn phòng',
+      roomId: currentRoom?.id,
       assignee: targetAgent ? targetAgent.name : 'Bot tự động',
+      assigneeId: targetAgent ? targetAgent.id : undefined,
       status: 'Đang xử lý',
       time: new Date().toLocaleTimeString('vi-VN')
     });

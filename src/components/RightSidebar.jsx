@@ -38,9 +38,13 @@ export default function RightSidebar({
               <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 rounded">
                 Admin
               </span>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded-full flex items-center gap-1 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Antigravity Live
+              </span>
             </h2>
             <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
-              Bấm vào một bàn hoặc phòng để xem chi tiết. Nút <strong className="text-violet-300">Tham quan</strong> đưa camera đi một vòng văn phòng.
+              Đang kết nối phiên trực tiếp với <strong className="text-violet-300">Antigravity AI</strong>. Bấm nút <strong className="text-amber-300">⚡ Antigravity Live</strong> để xem dòng sự kiện.
             </p>
           </div>
         </div>

@@ -16,20 +16,20 @@ export const INITIAL_ROOMS = [
         type: 'boss',
         avatar: '👑',
         status: 'working',
-        statusText: 'Làm việc tại phòng',
+        statusText: 'Chỉ huy Antigravity Live',
         statusColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-        currentTask: 'Giám sát vận hành 6 phòng ban AI tác vụ',
+        currentTask: 'nhưng mà a muốn nó link với antigravity hiện tại a đang làm việc như này',
         pos: [8, 0, 8],
         deskPos: [8, 0, 8],
         thoughts: [
-          'Hôm nay các phòng ban AI hoạt động rất tích cực.',
-          'Đang kiểm tra hiệu suất của bot tự động phòng Lên lịch.',
-          'Cần chuẩn bị mở thêm phòng R&D AI model mới.'
+          'nhưng mà a muốn nó link với antigravity hiện tại a đang làm việc như này',
+          'Đang chỉ đạo Antigravity đồng bộ trực tiếp phiên làm việc vào văn phòng 3D.',
+          'Các tác vụ code, build, git đang phản hồi thời gian thực qua WebSocket!'
         ],
         logs: [
-          '[16:00:12] Khởi động hệ thống Antigravity Office 3D',
-          '[16:01:05] Kết nối đồng bộ 16 tác vụ AI Agent',
-          '[16:04:30] Phê duyệt báo cáo tuần hoàn thành 98% KPI'
+          '[09:30:36] Sếp A Long: "nhưng mà a muốn nó link với antigravity hiện tại a đang làm việc như này"',
+          '[09:20:50] Sếp A Long: "kết nối API backend thật cho anh"',
+          '[09:17:36] Sếp A Long: "phân tích dự án hiện tại đi e"'
         ]
       }
     ]
