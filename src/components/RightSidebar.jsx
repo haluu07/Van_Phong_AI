@@ -1,5 +1,21 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Activity, Layers, CheckCircle2, ListTodo, Sparkles } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Activity,
+  Layers,
+  CheckCircle2,
+  ListTodo,
+  Sparkles,
+  Search,
+  Eye,
+  PanelRightClose,
+  PanelRightOpen,
+  Clock,
+  Terminal,
+  TrendingUp,
+  Zap
+} from 'lucide-react';
 import { soundManager } from '../utils/soundEffects';
 
 export default function RightSidebar({
@@ -7,9 +23,13 @@ export default function RightSidebar({
   selectedAgent,
   onSelectAgent,
   onSelectRoom,
-  tasks
+  tasks,
+  onCompleteTask,
+  onOpenAntigravityLive
 }) {
   const [activeTab, setActiveTab] = useState('rooms'); // 'rooms' | 'reports' | 'tasks'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedRooms, setExpandedRooms] = useState({
     room_along: true,
     room_douyin: true,
@@ -21,41 +41,103 @@ export default function RightSidebar({
 
   const toggleRoom = (roomId) => {
     soundManager.playPop();
-    setExpandedRooms(prev => ({ ...prev, [roomId]: !prev[roomId] }));
+    setExpandedRooms((prev) => ({ ...prev, [roomId]: !prev[roomId] }));
   };
 
+  if (isCollapsed) {
+    return (
+      <div className="absolute top-20 right-4 z-20 pointer-events-auto">
+        <button
+          onClick={() => {
+            soundManager.playPop();
+            setIsCollapsed(false);
+          }}
+          title="Mở bảng điều khiển"
+          className="glass-panel px-3.5 py-2.5 rounded-2xl flex items-center gap-2 text-xs font-bold text-slate-200 hover:text-white hover:bg-white/10 transition-all shadow-xl"
+        >
+          <PanelRightOpen className="w-4 h-4 text-amber-400" />
+          <span>Bảng điều khiển</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Lọc phòng và nhân sự theo từ khóa tìm kiếm
+  const filteredRooms = rooms.map((room) => {
+    if (!searchQuery.trim()) return room;
+    const q = searchQuery.toLowerCase();
+    const matchedMembers = room.members.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.role.toLowerCase().includes(q) ||
+        (m.currentTask && m.currentTask.toLowerCase().includes(q))
+    );
+    return { ...room, members: matchedMembers };
+  });
+
   return (
-    <aside className="absolute top-20 right-4 bottom-16 w-80 lg:w-96 z-20 flex flex-col gap-3 pointer-events-none">
-      {/* Thẻ chào sếp A Long (như trong ảnh mẫu) */}
-      <div className="glass-panel p-3.5 rounded-2xl pointer-events-auto shadow-xl shadow-black/40">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-950 font-black text-lg flex items-center justify-center shadow-lg shadow-amber-500/20">
-            L
+    <aside className="absolute top-20 right-4 bottom-20 w-80 lg:w-[368px] z-20 flex flex-col gap-2.5 pointer-events-none animate-fade-in">
+      {/* Thẻ điều hành Sếp A Long */}
+      <div className="glass-panel p-3.5 rounded-2xl pointer-events-auto">
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              onClick={() => {
+                soundManager.playPop();
+                onSelectRoom('room_along');
+              }}
+              className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-slate-950 font-black text-base flex items-center justify-center shadow-lg shadow-amber-500/20 cursor-pointer hover:scale-105 transition-transform shrink-0"
+              title="Di chuyển camera tới Phòng A Long"
+            >
+              👑
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-sm font-extrabold text-white tracking-tight">
+                  Chào Sếp A Long
+                </h2>
+                <span className="text-[9px] font-mono font-bold uppercase tracking-wider bg-amber-400/15 text-amber-300 border border-amber-400/30 px-1.5 py-0.5 rounded">
+                  COMMANDER
+                </span>
+                <button
+                  onClick={() => {
+                    soundManager.playPop();
+                    onOpenAntigravityLive && onOpenAntigravityLive();
+                  }}
+                  className="text-[9px] font-mono font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full flex items-center gap-1 hover:bg-emerald-500/25 transition-colors"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  LIVE SYNC
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-snug mt-1">
+                Chọn nhân sự để xem terminal log hoặc giao nhiệm vụ mới.
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
-              Chào A Long
-              <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 rounded">
-                Admin
-              </span>
-              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded-full flex items-center gap-1 font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Antigravity Live
-              </span>
-            </h2>
-            <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
-              Đang kết nối phiên trực tiếp với <strong className="text-violet-300">Antigravity AI</strong>. Bấm nút <strong className="text-amber-300">⚡ Antigravity Live</strong> để xem dòng sự kiện.
-            </p>
-          </div>
+
+          <button
+            onClick={() => {
+              soundManager.playPop();
+              setIsCollapsed(true);
+            }}
+            title="Thu gọn bảng bên phải"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+          >
+            <PanelRightClose className="w-4 h-4" />
+          </button>
         </div>
 
         {/* 3 Tab điều hướng: Phòng ban | Báo cáo | Việc đã giao */}
-        <div className="grid grid-cols-3 gap-1.5 bg-slate-900/60 p-1 rounded-xl mt-3 border border-white/5 text-xs font-semibold">
+        <div className="grid grid-cols-3 gap-1 bg-black/40 p-1 rounded-xl mt-3 border border-white/[0.06] text-xs font-bold">
           <button
-            onClick={() => { soundManager.playPop(); setActiveTab('rooms'); }}
-            className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+            onClick={() => {
+              soundManager.playPop();
+              setActiveTab('rooms');
+            }}
+            className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
               activeTab === 'rooms'
-                ? 'bg-violet-600 text-white shadow-md'
+                ? 'bg-slate-800 text-amber-300 shadow-sm border border-white/10'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -64,10 +146,13 @@ export default function RightSidebar({
           </button>
 
           <button
-            onClick={() => { soundManager.playPop(); setActiveTab('reports'); }}
-            className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+            onClick={() => {
+              soundManager.playPop();
+              setActiveTab('reports');
+            }}
+            className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
               activeTab === 'reports'
-                ? 'bg-violet-600 text-white shadow-md'
+                ? 'bg-slate-800 text-cyan-300 shadow-sm border border-white/10'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -76,29 +161,55 @@ export default function RightSidebar({
           </button>
 
           <button
-            onClick={() => { soundManager.playPop(); setActiveTab('tasks'); }}
-            className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+            onClick={() => {
+              soundManager.playPop();
+              setActiveTab('tasks');
+            }}
+            className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
               activeTab === 'tasks'
-                ? 'bg-violet-600 text-white shadow-md'
+                ? 'bg-slate-800 text-emerald-300 shadow-sm border border-white/10'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <ListTodo className="w-3.5 h-3.5" />
-            <span>Việc đã giao</span>
+            <span>Tác vụ</span>
+            {tasks?.length > 0 && (
+              <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded-full">
+                {tasks.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
 
       {/* Nội dung danh sách theo Tab */}
-      <div className="glass-panel flex-1 rounded-2xl p-3 overflow-y-auto pointer-events-auto shadow-xl shadow-black/40 flex flex-col gap-2.5">
+      <div className="glass-panel flex-1 rounded-2xl p-3 overflow-y-auto pointer-events-auto flex flex-col gap-2.5">
         {activeTab === 'rooms' && (
           <div className="flex flex-col gap-2.5">
-            {rooms.map((room) => {
-              const isExpanded = expandedRooms[room.id];
+            {/* Thanh tìm kiếm nhanh */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm nhân sự AI, chức vụ hoặc tác vụ..."
+                className="w-full bg-black/35 border border-white/[0.07] focus:border-amber-400/50 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {filteredRooms.map((room) => {
+              const isExpanded = expandedRooms[room.id] || searchQuery.trim().length > 0;
+              if (searchQuery.trim() && room.members.length === 0) return null;
+
+              const workingCount = room.members.filter(
+                (m) => m.status === 'working' || m.status === 'spotlight'
+              ).length;
+
               return (
                 <div
                   key={room.id}
-                  className="bg-slate-900/40 rounded-xl border border-white/5 overflow-hidden transition-all hover:border-white/10"
+                  className="bg-black/30 rounded-xl border border-white/[0.06] overflow-hidden transition-all hover:border-white/[0.12]"
                 >
                   {/* Header phòng ban */}
                   <div
@@ -106,38 +217,45 @@ export default function RightSidebar({
                       toggleRoom(room.id);
                       onSelectRoom(room.id);
                     }}
-                    className="p-2.5 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                    className="p-2.5 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] transition-colors"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span
-                        className="w-2.5 h-2.5 rounded-full"
+                        className="w-1.5 h-7 rounded-full shrink-0"
                         style={{ backgroundColor: room.color }}
                       />
-                      <div>
-                        <h3 className="text-xs font-bold text-white tracking-wide">
-                          {room.name}
-                        </h3>
-                        <p className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-bold text-slate-100 tracking-tight truncate">
+                            {room.name}
+                          </h3>
+                          {workingCount > 0 && (
+                            <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded">
+                              {workingCount} active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 truncate max-w-[195px]">
                           {room.subtitle}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <span className="text-[10px] font-mono bg-white/5 px-1.5 py-0.5 rounded">
-                        {room.members.length} bot
+                    <div className="flex items-center gap-1.5 text-slate-400 shrink-0">
+                      <span className="text-[10px] font-mono bg-white/[0.05] text-slate-300 px-1.5 py-0.5 rounded-md">
+                        {room.members.length}
                       </span>
                       {isExpanded ? (
-                        <ChevronDown className="w-4 h-4" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
                       )}
                     </div>
                   </div>
 
                   {/* Danh sách nhân viên trong phòng */}
                   {isExpanded && room.members.length > 0 && (
-                    <div className="px-2.5 pb-2.5 pt-1 flex flex-col gap-1.5 border-t border-white/5">
+                    <div className="px-2 pb-2 pt-1 flex flex-col gap-1 border-t border-white/[0.05]">
                       {room.members.map((member) => {
                         const isSelected = selectedAgent?.id === member.id;
                         return (
@@ -147,22 +265,26 @@ export default function RightSidebar({
                               soundManager.playChime();
                               onSelectAgent(member, room);
                             }}
-                            className={`p-2 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                            className={`group p-2 rounded-xl flex items-center justify-between gap-2 cursor-pointer transition-all ${
                               isSelected
-                                ? 'bg-violet-600/30 border border-violet-500/60 shadow-md shadow-violet-500/20'
-                                : 'bg-white/[0.03] hover:bg-white/[0.07] border border-transparent'
+                                ? 'bg-amber-500/15 border border-amber-400/40 shadow-sm'
+                                : 'glass-card-interactive'
                             }`}
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-base select-none">{member.avatar}</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-white/10 flex items-center justify-center text-base shrink-0 group-hover:scale-105 transition-transform">
+                                {member.avatar}
+                              </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-semibold text-slate-200 truncate flex items-center gap-1.5">
-                                  {member.name}
-                                  <span className="text-[10px] text-slate-400 font-normal">
-                                    {member.role}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-slate-100 truncate">
+                                    {member.name}
                                   </span>
-                                </p>
-                                <p className="text-[10px] text-slate-400 truncate max-w-[150px]">
+                                  <span className="text-[10px] text-slate-400 truncate">
+                                    • {member.role}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 truncate max-w-[165px] mt-0.5">
                                   {member.currentTask}
                                 </p>
                               </div>
@@ -170,7 +292,7 @@ export default function RightSidebar({
 
                             {/* Badge trạng thái */}
                             <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full border font-medium whitespace-nowrap ml-2 ${member.statusColor}`}
+                              className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold whitespace-nowrap shrink-0 ${member.statusColor}`}
                             >
                               {member.statusText}
                             </span>
@@ -186,47 +308,82 @@ export default function RightSidebar({
         )}
 
         {activeTab === 'reports' && (
-          <div className="flex flex-col gap-3 p-1">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 border border-violet-500/30">
+          <div className="flex flex-col gap-3">
+            {/* KPI Banner */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-500/15 via-cyan-500/10 to-transparent border border-emerald-500/30">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-violet-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Tiến độ hôm nay
+                <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Hiệu suất vận hành AI hôm nay
                 </span>
-                <span className="text-xs font-mono font-bold text-emerald-400">98.5% KPI</span>
+                <span className="text-xs font-mono font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-md">
+                  98.5% KPI
+                </span>
               </div>
-              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
-                <div className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full rounded-full w-[98.5%]" />
+              <div className="w-full bg-black/50 h-2 rounded-full overflow-hidden mt-2.5 border border-white/5">
+                <div className="bg-gradient-to-r from-emerald-400 to-cyan-400 h-full rounded-full w-[98.5%]" />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-center text-xs">
-              <div className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Video đã render</p>
-                <p className="text-base font-bold text-cyan-300 mt-0.5">48 / 50</p>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Kịch bản Douyin</p>
-                <p className="text-base font-bold text-orange-300 mt-0.5">12 / 12</p>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Tự lên lịch bot</p>
-                <p className="text-base font-bold text-blue-300 mt-0.5">100% OK</p>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Tiết kiệm chi phí</p>
-                <p className="text-base font-bold text-emerald-300 mt-0.5">-65%</p>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-900/50 border border-white/5">
-              <h4 className="text-xs font-bold text-slate-200 mb-2 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Phiên báo cáo trực tiếp (Tôm)
-              </h4>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                Chú cún Tôm đang thuyết trình báo cáo tương tác tuần qua tại bục trung tâm. Click vào Tôm để xem chi tiết!
+              <p className="text-[10px] text-slate-400 mt-2 font-mono">
+                Cập nhật tự động qua WebSocket • Tiết kiệm 65% thời gian xử lý
               </p>
+            </div>
+
+            {/* 4 Metric Cards */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-3 rounded-xl bg-black/35 border border-white/[0.06] flex flex-col justify-between">
+                <span className="text-slate-400 text-[10px] font-medium">Video đã render</span>
+                <div className="flex items-baseline justify-between mt-1">
+                  <span className="text-base font-mono font-extrabold text-cyan-300">48/50</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">+14%</span>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-black/35 border border-white/[0.06] flex flex-col justify-between">
+                <span className="text-slate-400 text-[10px] font-medium">Kịch bản Douyin</span>
+                <div className="flex items-baseline justify-between mt-1">
+                  <span className="text-base font-mono font-extrabold text-amber-300">12/12</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">100%</span>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-black/35 border border-white/[0.06] flex flex-col justify-between">
+                <span className="text-slate-400 text-[10px] font-medium">Cronjob Lên lịch</span>
+                <div className="flex items-baseline justify-between mt-1">
+                  <span className="text-base font-mono font-extrabold text-emerald-300">ONLINE</span>
+                  <span className="text-[10px] text-slate-400 font-mono">0 lỗi</span>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-black/35 border border-white/[0.06] flex flex-col justify-between">
+                <span className="text-slate-400 text-[10px] font-medium">Lượt xem tuần</span>
+                <div className="flex items-baseline justify-between mt-1">
+                  <span className="text-base font-mono font-extrabold text-rose-300">2.4M</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">+142%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Thẻ Spotlight Tôm */}
+            <div className="p-3 rounded-xl bg-black/35 border border-rose-500/25 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                  <span>🐕</span>
+                  <span>Bục Báo Cáo Trung Tâm (Tôm)</span>
+                </h4>
+                <span className="text-[9px] font-mono bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded uppercase">
+                  LIVE SPOTLIGHT
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Chú cún Shiba <strong>Tôm</strong> đang đứng dưới ánh đèn Spotlight thuyết trình dữ liệu KOC và hiệu suất tự động hóa.
+              </p>
+              <button
+                onClick={() => {
+                  soundManager.playChime();
+                  onSelectRoom('room_report');
+                }}
+                className="w-full py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-200 font-bold text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Di chuyển Camera tới Bục Báo Cáo</span>
+              </button>
             </div>
           </div>
         )}
@@ -234,20 +391,72 @@ export default function RightSidebar({
         {activeTab === 'tasks' && (
           <div className="flex flex-col gap-2">
             {tasks && tasks.length > 0 ? (
-              tasks.map(t => (
-                <div key={t.id} className="p-2.5 rounded-xl bg-slate-900/50 border border-white/5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-200">{t.title}</span>
-                    <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                      {t.status}
-                    </span>
+              tasks.map((t) => {
+                const isDone = t.status === 'Hoàn thành';
+                const progress = isDone ? 100 : t.progress ?? 45;
+                return (
+                  <div
+                    key={t.id}
+                    className="p-3 rounded-xl bg-black/35 border border-white/[0.07] hover:border-white/15 transition-all flex flex-col gap-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-100 leading-snug">
+                        {t.title}
+                      </span>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-md border shrink-0 font-semibold ${
+                          isDone
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                            : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        }`}
+                      >
+                        {t.status}
+                      </span>
+                    </div>
+
+                    {/* Thanh tiến độ */}
+                    <div className="w-full bg-black/50 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isDone ? 'bg-emerald-400' : 'bg-amber-400'
+                        }`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-200 font-semibold">{t.assignee}</span>
+                        <span>•</span>
+                        <span>{t.roomName}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {t.time && (
+                          <span className="font-mono text-slate-500 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {t.time}
+                          </span>
+                        )}
+                        {!isDone && onCompleteTask && (
+                          <button
+                            onClick={() => {
+                              soundManager.playSuccess();
+                              onCompleteTask(t.id);
+                            }}
+                            className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 underline"
+                          >
+                            Hoàn tất
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">Giao cho: {t.assignee}</p>
-                </div>
-              ))
+                );
+              })
             ) : (
-              <div className="text-center py-8 text-slate-400 text-xs">
-                Chưa có task nào được giao thủ công. Bấm nút <strong>"+ Giao việc"</strong> phía trên để điều động bot!
+              <div className="text-center py-10 text-slate-400 text-xs">
+                Chưa có tác vụ nào. Bấm nút <strong>"+ Giao việc"</strong> trên thanh công cụ để phân công!
               </div>
             )}
           </div>

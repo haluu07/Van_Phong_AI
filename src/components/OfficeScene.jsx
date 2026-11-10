@@ -411,37 +411,55 @@ export default function OfficeScene({
     const charGroup = new THREE.Group();
     scene.add(charGroup);
 
-    // Hàm tạo texture bảng tên 3D trên đầu
-    const createNameSprite = (name, statusText, isLead = false) => {
+    // Hàm tạo texture bảng tên 3D trên đầu (Chuẩn Retina sắc nét)
+    const createNameSprite = (name, statusText, isLead = false, status = 'working') => {
       const canvas = document.createElement('canvas');
-      canvas.width = 320;
-      canvas.height = 110;
+      canvas.width = 480;
+      canvas.height = 160;
       const ctx = canvas.getContext('2d');
 
-      // Nền bo góc
-      ctx.fillStyle = isLead ? 'rgba(139, 92, 246, 0.92)' : 'rgba(15, 23, 42, 0.88)';
-      ctx.strokeStyle = isLead ? '#c084fc' : 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 4;
+      // Nền bo góc tối sang trọng
+      ctx.fillStyle = isLead ? 'rgba(24, 24, 27, 0.94)' : 'rgba(12, 16, 23, 0.90)';
+      ctx.strokeStyle = isLead ? '#f59e0b' : 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = isLead ? 5 : 3;
       ctx.beginPath();
-      ctx.roundRect(10, 10, 300, 90, 24);
+      ctx.roundRect(14, 14, 452, 132, 34);
       ctx.fill();
       ctx.stroke();
 
-      // Tên nhân vật
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 36px Plus Jakarta Sans, Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(name, 160, 52);
+      // Chấm tròn màu theo trạng thái
+      let dotColor = '#34d399'; // working
+      if (status === 'spotlight') dotColor = '#f472b6';
+      else if (status === 'coffee' || status === 'chat') dotColor = '#fbbf24';
+      else if (status === 'gaming' || status === 'break') dotColor = '#38bdf8';
+      else if (status === 'idle') dotColor = '#94a3b8';
 
-      // Trạng thái nhỏ phía dưới
-      ctx.fillStyle = isLead ? '#fef08a' : '#38bdf8';
-      ctx.font = '500 22px Plus Jakarta Sans, Arial';
-      ctx.fillText(statusText.substring(0, 20), 160, 84);
+      // Tên nhân vật
+      ctx.fillStyle = isLead ? '#fde68a' : '#ffffff';
+      ctx.font = '800 44px "Plus Jakarta Sans", Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(isLead ? `👑 ${name}` : name, 240, 74);
+
+      // Chấm trạng thái + Text trạng thái phía dưới
+      const shortStatus = (statusText || '').substring(0, 22);
+      ctx.font = '600 28px "Plus Jakarta Sans", Arial';
+      const textWidth = ctx.measureText(shortStatus).width;
+      const startX = 240 - (textWidth + 28) / 2;
+
+      ctx.fillStyle = dotColor;
+      ctx.beginPath();
+      ctx.arc(startX + 8, 114, 9, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = isLead ? '#fcd34d' : '#cbd5e1';
+      ctx.textAlign = 'left';
+      ctx.fillText(shortStatus, startX + 26, 123);
 
       const texture = new THREE.CanvasTexture(canvas);
+      texture.anisotropy = 4;
       const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
       const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(1.5, 0.55, 1);
+      sprite.scale.set(1.65, 0.56, 1);
       return sprite;
     };
 
@@ -556,8 +574,13 @@ export default function OfficeScene({
       }
 
       // 7. Bảng tên Sprite lơ lửng trên đầu
-      const sprite = createNameSprite(member.name, member.statusText, member.role.includes('Trưởng phòng') || member.id === 'along');
-      sprite.position.set(0, 2.2, 0);
+      const sprite = createNameSprite(
+        member.name,
+        member.statusText,
+        member.role.includes('Trưởng phòng') || member.id === 'along',
+        member.status
+      );
+      sprite.position.set(0, 2.25, 0);
       group.add(sprite);
 
       // Vị trí
@@ -724,9 +747,19 @@ export default function OfficeScene({
     }
   }, [cameraPreset, rooms]);
 
+  // Tự động di chuyển Camera tới nhân vật khi chọn từ Sidebar
+  useEffect(() => {
+    if (selectedAgent && selectedAgent.pos) {
+      targetLookAt.current.set(selectedAgent.pos[0], 1, selectedAgent.pos[2]);
+      targetCamPos.current.set(selectedAgent.pos[0] + 4.5, 5.5, selectedAgent.pos[2] + 5.5);
+      setIsTouring(false);
+    }
+  }, [selectedAgent, setIsTouring]);
+
   return (
     <div className="relative w-full h-full select-none">
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+      <div className="absolute inset-0 pointer-events-none scene-vignette" />
     </div>
   );
 }
