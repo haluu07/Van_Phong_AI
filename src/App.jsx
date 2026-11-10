@@ -13,6 +13,8 @@ export default function App() {
   const [rooms, setRooms] = useState(INITIAL_ROOMS);
   const [metrics, setMetrics] = useState(OFFICE_METRICS);
   const [tasks, setTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [currentProject, setCurrentProject] = useState(null);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [isTouring, setIsTouring] = useState(false);
@@ -35,6 +37,12 @@ export default function App() {
       if (state.rooms) setRooms(state.rooms);
       if (state.tasks) setTasks(state.tasks);
       if (state.metrics) setMetrics(state.metrics);
+    });
+
+    api.fetchProjects().then((projData) => {
+      if (!isMounted || !projData) return;
+      if (projData.projects) setProjects(projData.projects);
+      if (projData.currentProject) setCurrentProject(projData.currentProject);
     });
 
     api.fetchAntigravitySession().then((sessionData) => {
@@ -144,6 +152,20 @@ export default function App() {
           break;
         }
 
+        case 'PROJECTS_UPDATED': {
+          if (data.projects) setProjects(data.projects);
+          if (data.currentProject) setCurrentProject(data.currentProject);
+          break;
+        }
+
+        case 'PROJECT_SWITCHED': {
+          if (data.currentProject) {
+            setCurrentProject(data.currentProject);
+            setLatestLog(`📁 Sếp A Long đã chọn dự án: ${data.currentProject.name}`);
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -205,6 +227,18 @@ export default function App() {
     api.sendAntigravityEvent(eventData);
   };
 
+  const handleSelectProject = (projectId) => {
+    api.selectProject(projectId);
+  };
+
+  const handleScanProjects = () => {
+    api.scanProjects();
+  };
+
+  const handleAddCustomProject = (folderPath, name) => {
+    api.addCustomProject(folderPath, name);
+  };
+
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-[#080a0f]">
       {/* 1. Lớp Scene 3D tương tác */}
@@ -226,6 +260,11 @@ export default function App() {
         onOpenAntigravityLive={() => setIsAntigravityLiveOpen(true)}
         metrics={metrics}
         isConnected={isConnected}
+        projects={projects}
+        currentProject={currentProject}
+        onSelectProject={handleSelectProject}
+        onScanProjects={handleScanProjects}
+        onAddCustomProject={handleAddCustomProject}
       />
 
       {/* 3. Lớp UI RightSidebar */}
@@ -239,6 +278,9 @@ export default function App() {
         onResetOffice={handleResetOffice}
         onOpenAssignTask={() => setIsAssignTaskOpen(true)}
         onOpenAntigravityLive={() => setIsAntigravityLiveOpen(true)}
+        projects={projects}
+        currentProject={currentProject}
+        onSelectProject={handleSelectProject}
       />
 
       {/* 4. Lớp UI BottomBar + Live Stream Ticker */}
@@ -266,6 +308,8 @@ export default function App() {
         onClose={() => setIsAssignTaskOpen(false)}
         rooms={rooms}
         onAddNewTask={handleAddNewTask}
+        currentProject={currentProject}
+        projects={projects}
       />
 
       {/* 7. Modal Antigravity Live Session Hub */}

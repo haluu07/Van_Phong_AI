@@ -244,12 +244,13 @@ class OfficeDatabase {
     }
 
     const timestamp = new Date().toLocaleTimeString('vi-VN');
+    const projectTag = options.projectName ? `[${options.projectName}] ` : '';
     agent.logs = [
-      `[${timestamp}] Nhận nhiệm vụ: "${newTask}"`,
+      `[${timestamp}] Nhận nhiệm vụ ${projectTag}: "${newTask}"`,
       ...(agent.logs || [])
     ];
     agent.thoughts = [
-      `Đang tập trung xử lý: "${newTask}"`,
+      `Đang tập trung xử lý ${projectTag}: "${newTask}"`,
       ...(agent.thoughts || [])
     ];
 
@@ -260,6 +261,8 @@ class OfficeDatabase {
       roomId: room.id,
       assignee: agent.name,
       assigneeId: agent.id,
+      projectId: options.projectId || null,
+      projectName: options.projectName || null,
       status: 'Đang làm việc',
       progress: 10,
       time: timestamp
@@ -345,7 +348,7 @@ class OfficeDatabase {
     return { agent, thought };
   }
 
-  createTask({ title, roomId, roomName, assignee, assigneeId, agentType, agentRole }) {
+  createTask({ title, roomId, roomName, assignee, assigneeId, agentType, agentRole, projectId, projectName }) {
     const spawnRes = this.spawnOrGetAgent({
       agentId: assigneeId,
       agentName: assignee,
@@ -358,6 +361,7 @@ class OfficeDatabase {
     const resolvedRoom = spawnRes?.room;
 
     const timestamp = new Date().toLocaleTimeString('vi-VN');
+    const projectTag = projectName ? `[${projectName}] ` : '';
     const taskObj = {
       id: 'task_' + Date.now(),
       title,
@@ -365,6 +369,8 @@ class OfficeDatabase {
       roomId: resolvedRoom ? resolvedRoom.id : roomId,
       assignee: resolvedAgent ? resolvedAgent.name : (assignee || 'Bot AI'),
       assigneeId: resolvedAgent ? resolvedAgent.id : assigneeId,
+      projectId: projectId || null,
+      projectName: projectName || null,
       status: 'Đang làm việc',
       progress: 10,
       time: timestamp
@@ -379,11 +385,11 @@ class OfficeDatabase {
         resolvedAgent.pos = [...resolvedAgent.deskPos];
       }
       resolvedAgent.logs = [
-        `[${timestamp}] Nhận nhiệm vụ mới: "${title}"`,
+        `[${timestamp}] Nhận nhiệm vụ mới ${projectTag}: "${title}"`,
         ...(resolvedAgent.logs || [])
       ];
       resolvedAgent.thoughts = [
-        `Đang thực thi nhiệm vụ: "${title}"`,
+        `Đang thực thi nhiệm vụ ${projectTag}: "${title}"`,
         ...(resolvedAgent.thoughts || [])
       ];
     }

@@ -24,6 +24,7 @@ Sử dụng:
   node office-cli.js log <agentId> "<dòng log>"                  -> Bắn log trực tiếp vào màn hình nhân vật
   node office-cli.js dismiss <agentId>                           -> Cho nhân vật nghỉ và rời khỏi văn phòng
   node office-cli.js reset                                       -> Giải tán toàn bộ nhân vật & xóa hết task (về 0)
+  node office-cli.js project [list|select|scan|add]              -> Quản lý & chọn dự án làm việc của Antigravity
   node office-cli.js prompt "<yêu cầu>" "<hành động>"            -> Đồng bộ phiên chat Antigravity vào phòng A Long
 `);
     process.exit(0);
@@ -78,6 +79,47 @@ Sử dụng:
       });
       await res.json();
       console.log(`✅ [Office 3D] Đã đồng bộ chỉ đạo của A Long vào văn phòng!`);
+    } else if (cmd === 'project') {
+      const subCmd = arg1 || 'list';
+      if (subCmd === 'list') {
+        const res = await fetch(`${API_BASE}/projects`);
+        const json = await res.json();
+        const { currentProjectId, projects } = json.data;
+        console.log(`\n📁 DANH SÁCH DỰ ÁN TRÊN ANTIGRAVITY (${projects.length}):`);
+        projects.forEach((p) => {
+          const isCur = p.id === currentProjectId ? '👉 [ACTIVE]' : '  ';
+          console.log(`${isCur} ${p.name.padEnd(25)} (${p.branch}) - ${p.path}`);
+        });
+        console.log('');
+      } else if (subCmd === 'select') {
+        const projectId = arg2;
+        if (!projectId) {
+          console.error('❌ Vui lòng truyền mã dự án: node office-cli.js project select <projectId>');
+          process.exit(1);
+        }
+        const res = await fetch(`${API_BASE}/projects/select`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId })
+        });
+        const data = await res.json();
+        console.log(`✅ [Office 3D] ${data.message}`);
+      } else if (subCmd === 'scan') {
+        console.log('🔄 Đang quét lại các dự án...');
+        const res = await fetch(`${API_BASE}/projects/scan`, { method: 'POST' });
+        const data = await res.json();
+        console.log(`✅ [Office 3D] ${data.message}`);
+      } else if (subCmd === 'add') {
+        const folderPath = arg2;
+        const customName = arg3;
+        const res = await fetch(`${API_BASE}/projects/add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: folderPath, name: customName })
+        });
+        const data = await res.json();
+        console.log(`✅ [Office 3D] ${data.message}`);
+      }
     } else {
       console.error(`❌ Lệnh không hợp lệ: ${cmd}`);
     }

@@ -4,6 +4,7 @@ import cors from 'cors';
 import { WebSocketServer, WebSocket } from 'ws';
 import { db } from './db.js';
 import { antigravityBridge } from './antigravityBridge.js';
+import { projectManager } from './projectManager.js';
 
 const PORT = process.env.PORT || 3001;
 const AUTO_SIMULATION = process.env.AUTO_SIMULATION === 'true'; // Tắt giả lập tự động, chỉ chạy thật theo lệnh A Long & Antigravity
@@ -16,9 +17,10 @@ app.use(express.json());
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
-// Kết nối Antigravity Live Bridge
+// Kết nối Antigravity Live Bridge & Project Manager
 antigravityBridge.setContext(db, broadcast);
 antigravityBridge.startWatcher();
+projectManager.setBroadcastFn(broadcast);
 
 // Hàm broadcast sự kiện tới tất cả client WebSocket đang kết nối
 function broadcast(type, data) {
@@ -51,6 +53,17 @@ wss.on('connection', (ws, req) => {
   ws.send(JSON.stringify({
     type: 'ANTIGRAVITY_LIVE_SYNC',
     data: { session: antigravityBridge.getSession() },
+    timestamp: new Date().toISOString()
+  }));
+
+  // Gửi danh sách dự án Antigravity
+  ws.send(JSON.stringify({
+    type: 'PROJECTS_UPDATED',
+    data: {
+      currentProject: projectManager.getCurrentProject(),
+      currentProjectId: projectManager.currentProjectId,
+      projects: projectManager.getAllProjects()
+    },
     timestamp: new Date().toISOString()
   }));
 
@@ -147,11 +160,14 @@ app.post('/api/agents/:agentId/task', (req, res) => {
     return res.status(400).json({ success: false, message: 'Nhiệm vụ không được để trống' });
   }
 
+  const curProj = projectManager.getCurrentProject();
   const result = db.updateAgentTask(req.params.agentId, task.trim(), {
     roomId,
     agentName,
     agentType,
-    agentRole
+    agentRole,
+    projectId: req.body.projectId || curProj?.id,
+    projectName: req.body.projectName || curProj?.name
   });
 
   // Phát sóng sự kiện real-time (kèm toàn bộ rooms để 3D render nhân vật mới)
@@ -246,6 +262,7 @@ app.post('/api/tasks', (req, res) => {
     return res.status(400).json({ success: false, message: 'Tiêu đề nhiệm vụ không được để trống' });
   }
 
+  const curProj = projectManager.getCurrentProject();
   const result = db.createTask({
     title: title.trim(),
     roomId,
@@ -253,7 +270,9 @@ app.post('/api/tasks', (req, res) => {
     assignee,
     assigneeId,
     agentType,
-    agentRole
+    agentRole,
+    projectId: req.body.projectId || curProj?.id,
+    projectName: req.body.projectName || curProj?.name
   });
 
   broadcast('INIT_STATE', db.getState());
@@ -403,6 +422,86 @@ app.post('/api/antigravity/event', (req, res) => {
     message: 'Đã cập nhật sự kiện Antigravity Live',
     data: result
   });
+});
+
+// ==========================================
+// 18. QUẢN LÝ DỰ ÁN TRÊN ANTIGRAVITY (PROJECT SELECTOR)
+// ==========================================
+
+// Lấy danh sách toàn bộ dự án và dự án hiện tại
+app.get('/api/projects', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      currentProjectId: projectManager.currentProjectId,
+      currentProject: projectManager.getCurrentProject(),
+      projects: projectManager.getAllProjects()
+    }
+  });
+});
+
+// Lấy chi tiết dự án đang được chọn
+app.get('/api/projects/current', (req, res) => {
+  res.json({
+    success: true,
+    data: projectManager.getCurrentProject()
+  });
+});
+
+// Chuyển đổi dự án làm việc hiện tại
+app.post('/api/projects/select', (req, res) => {
+  const { projectId } = req.body;
+  if (!projectId) {
+    return res.status(400).json({ success: false, message: 'projectId là bắt buộc' });
+  }
+
+  const selected = projectManager.selectProject(projectId);
+  if (!selected) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy dự án' });
+  }
+
+  res.json({
+    success: true,
+    message: `Đã chọn làm việc với dự án: "${selected.name}"`,
+    data: selected
+  });
+});
+
+// Quét lại toàn bộ thư mục Antigravity tìm dự án mới
+app.post('/api/projects/scan', async (req, res) => {
+  try {
+    const list = await projectManager.scan();
+    res.json({
+      success: true,
+      message: `Đã quét và tìm thấy ${list.length} dự án`,
+      data: {
+        currentProjectId: projectManager.currentProjectId,
+        currentProject: projectManager.getCurrentProject(),
+        projects: list
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Thêm một thư mục dự án tùy chỉnh
+app.post('/api/projects/add', async (req, res) => {
+  const { path: folderPath, name } = req.body;
+  if (!folderPath) {
+    return res.status(400).json({ success: false, message: 'Đường dẫn thư mục là bắt buộc' });
+  }
+
+  try {
+    const added = await projectManager.addCustomProject(folderPath, name);
+    res.json({
+      success: true,
+      message: `Đã thêm dự án "${added.name}" thành công`,
+      data: added
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
 });
 
 // Khởi động server

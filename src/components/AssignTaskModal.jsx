@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Send, PlusCircle, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Send, PlusCircle, Sparkles, FolderGit2, GitBranch } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundManager } from '../utils/soundEffects';
 import { AVATAR_TYPES } from '../data/officeData';
@@ -8,16 +8,26 @@ export default function AssignTaskModal({
   isOpen,
   onClose,
   rooms,
-  onAddNewTask
+  onAddNewTask,
+  currentProject,
+  projects = []
 }) {
   const [selectedRoomId, setSelectedRoomId] = useState('room_douyin');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [agentName, setAgentName] = useState('');
   const [agentType, setAgentType] = useState('cat');
   const [taskTitle, setTaskTitle] = useState('');
 
+  useEffect(() => {
+    if (currentProject?.id) {
+      setSelectedProjectId(currentProject.id);
+    }
+  }, [currentProject]);
+
   if (!isOpen) return null;
 
   const currentRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
+  const chosenProject = projects.find((p) => p.id === selectedProjectId) || currentProject;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -39,7 +49,9 @@ export default function AssignTaskModal({
       roomName: currentRoom?.name || 'Văn phòng',
       roomId: currentRoom?.id || 'room_douyin',
       assignee: finalName,
-      agentType
+      agentType,
+      projectId: chosenProject?.id || null,
+      projectName: chosenProject?.name || null
     });
 
     setTaskTitle('');
@@ -80,6 +92,35 @@ export default function AssignTaskModal({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 text-xs">
+          {/* Dự án thực thi */}
+          <div className="bg-amber-500/10 border border-amber-500/25 p-2.5 rounded-2xl flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <FolderGit2 className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[10px] text-amber-300/80 font-bold uppercase block">
+                  Dự án thực thi:
+                </span>
+                <span className="text-xs font-bold text-white truncate block">
+                  {chosenProject?.name || 'Dự án mặc định'}
+                </span>
+              </div>
+            </div>
+
+            {projects.length > 1 && (
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="bg-black/70 border border-white/15 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-amber-400 max-w-[140px]"
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
           {/* 1. Chọn phòng ban */}
           <div>
             <label className="font-bold text-slate-300 block mb-1.5">

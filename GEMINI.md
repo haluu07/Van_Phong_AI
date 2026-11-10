@@ -29,4 +29,13 @@ node office-cli.js dismiss <ten_bot>
 
 # 5. Giải tán toàn bộ nhân vật & làm trống văn phòng về 0:
 node office-cli.js reset
+
+# 6. Xem danh sách dự án và chuyển đổi dự án làm việc:
+node office-cli.js project list
+node office-cli.js project select <ma_du_an>
+node office-cli.js project scan
 ```
+
+## 3. Quản lý Dự Án (Project Selector)
+- Hệ thống tự động quét toàn bộ repositories/projects trên máy và workspace của Sếp A Long.
+- Khi A Long chọn dự án hoặc chỉ định dự án trong câu lệnh, Chibi sẽ tự động gán ngữ cảnh `[Tên Dự Án]` vào Terminal và danh sách tác vụ để luôn biết chính xác đang làm dự án nào.

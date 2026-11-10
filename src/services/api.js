@@ -154,6 +154,65 @@ export const api = {
       console.error('[API] Lỗi sendAntigravityEvent:', err.message);
       return null;
     }
+  },
+
+  // Lấy danh sách toàn bộ dự án trên Antigravity
+  async fetchProjects() {
+    try {
+      const res = await fetch(`${API_BASE}/projects`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return json.data;
+    } catch (err) {
+      console.warn('[API] Lỗi fetchProjects:', err.message);
+      return { currentProjectId: null, currentProject: null, projects: [] };
+    }
+  },
+
+  // Chọn dự án làm việc
+  async selectProject(projectId) {
+    try {
+      const res = await fetch(`${API_BASE}/projects/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] Lỗi selectProject:', err.message);
+      return null;
+    }
+  },
+
+  // Quét lại toàn bộ dự án
+  async scanProjects() {
+    try {
+      const res = await fetch(`${API_BASE}/projects/scan`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] Lỗi scanProjects:', err.message);
+      return null;
+    }
+  },
+
+  // Thêm dự án tùy chỉnh
+  async addCustomProject(folderPath, name) {
+    try {
+      const res = await fetch(`${API_BASE}/projects/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: folderPath, name })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] Lỗi addCustomProject:', err.message);
+      return null;
+    }
   }
 };
 

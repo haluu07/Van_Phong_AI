@@ -12,7 +12,13 @@ import {
   Clock,
   TrendingUp,
   RotateCcw,
-  Plus
+  Plus,
+  FolderGit2,
+  GitBranch,
+  GitCommit,
+  Folder,
+  CheckCircle2,
+  ExternalLink
 } from 'lucide-react';
 import { soundManager } from '../utils/soundEffects';
 
@@ -25,7 +31,10 @@ export default function RightSidebar({
   onCompleteTask,
   onResetOffice,
   onOpenAssignTask,
-  onOpenAntigravityLive
+  onOpenAntigravityLive,
+  projects = [],
+  currentProject = null,
+  onSelectProject
 }) {
   const [activeTab, setActiveTab] = useState('rooms');
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,36 +164,36 @@ export default function RightSidebar({
           </div>
         </div>
 
-        {/* 3 Tab điều hướng */}
-        <div className="grid grid-cols-3 gap-1 bg-black/40 p-1 rounded-xl mt-3 border border-white/[0.06] text-xs font-bold">
+        {/* 4 Tab điều hướng */}
+        <div className="grid grid-cols-4 gap-1 bg-black/40 p-1 rounded-xl mt-3 border border-white/[0.06] text-[11px] font-bold">
           <button
             onClick={() => {
               soundManager.playPop();
               setActiveTab('rooms');
             }}
-            className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
               activeTab === 'rooms'
                 ? 'bg-slate-800 text-amber-300 shadow-sm border border-white/10'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-3 h-3" />
             <span>Phòng ({totalAgents})</span>
           </button>
 
           <button
             onClick={() => {
               soundManager.playPop();
-              setActiveTab('reports');
+              setActiveTab('project');
             }}
-            className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'reports'
-                ? 'bg-slate-800 text-cyan-300 shadow-sm border border-white/10'
+            className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+              activeTab === 'project'
+                ? 'bg-slate-800 text-amber-300 shadow-sm border border-white/10'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Activity className="w-3.5 h-3.5" />
-            <span>Số liệu thật</span>
+            <FolderGit2 className="w-3 h-3 text-amber-400" />
+            <span>Dự án</span>
           </button>
 
           <button
@@ -192,14 +201,29 @@ export default function RightSidebar({
               soundManager.playPop();
               setActiveTab('tasks');
             }}
-            className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
               activeTab === 'tasks'
                 ? 'bg-slate-800 text-emerald-300 shadow-sm border border-white/10'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ListTodo className="w-3.5 h-3.5" />
+            <ListTodo className="w-3 h-3" />
             <span>Tác vụ ({totalTasks})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              soundManager.playPop();
+              setActiveTab('reports');
+            }}
+            className={`py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+              activeTab === 'reports'
+                ? 'bg-slate-800 text-cyan-300 shadow-sm border border-white/10'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Activity className="w-3 h-3" />
+            <span>Số liệu</span>
           </button>
         </div>
       </div>
@@ -499,6 +523,164 @@ export default function RightSidebar({
                     <span>Giao việc đầu tiên</span>
                   </button>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: THÔNG TIN DỰ ÁN (PROJECT OVERVIEW) */}
+        {activeTab === 'project' && (
+          <div className="flex flex-col gap-3">
+            {currentProject ? (
+              <div className="flex flex-col gap-2.5">
+                {/* Thẻ Dự án Đang Chọn */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-black/40 to-black/60 border border-amber-500/30 flex flex-col gap-2.5 shadow-lg">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-md shadow-amber-500/20">
+                        <FolderGit2 className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-extrabold text-white truncate">
+                          {currentProject.name}
+                        </h4>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {currentProject.branch && (
+                            <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 flex items-center gap-0.5">
+                              <GitBranch className="w-2.5 h-2.5" />
+                              {currentProject.branch}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-mono text-slate-400">
+                            • {currentProject.status || 'Clean'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full shrink-0">
+                      ACTIVE
+                    </span>
+                  </div>
+
+                  {/* Đường dẫn */}
+                  <div className="bg-black/50 p-2 rounded-xl border border-white/5 font-mono text-[10px] text-slate-400 break-all select-all">
+                    {currentProject.path}
+                  </div>
+
+                  {/* Tech stack */}
+                  {currentProject.techStack && currentProject.techStack.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {currentProject.techStack.map((tech, i) => (
+                        <span
+                          key={i}
+                          className="text-[10px] font-semibold bg-white/5 text-slate-200 border border-white/10 px-2 py-0.5 rounded-lg"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Git Remote nếu có */}
+                  {currentProject.gitRemote && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono truncate">
+                      <span className="text-slate-500">Origin:</span>
+                      <span className="text-slate-300 truncate">{currentProject.gitRemote}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 5 Commit gần nhất */}
+                {currentProject.commits && currentProject.commits.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-black/35 border border-white/[0.07] flex flex-col gap-2">
+                    <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <GitCommit className="w-3.5 h-3.5 text-amber-400" />
+                      Lịch sử 5 Commits gần nhất
+                    </span>
+
+                    <div className="flex flex-col gap-1.5">
+                      {currentProject.commits.map((c, i) => (
+                        <div
+                          key={i}
+                          className="p-2 rounded-xl bg-black/40 border border-white/5 flex flex-col gap-1 text-[11px]"
+                        >
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="font-mono text-amber-400 font-bold bg-amber-500/10 px-1 rounded">
+                              {c.hash}
+                            </span>
+                            <span className="text-slate-400">{c.time}</span>
+                          </div>
+                          <p className="text-slate-200 font-medium truncate leading-tight">
+                            {c.message}
+                          </p>
+                          <span className="text-[10px] text-slate-500">
+                            Bởi: {c.author}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Danh sách tệp tin chính */}
+                {currentProject.keyFiles && currentProject.keyFiles.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-black/35 border border-white/[0.07] flex flex-col gap-2">
+                    <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Folder className="w-3.5 h-3.5 text-cyan-400" />
+                      Cấu trúc tệp tin chính
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {currentProject.keyFiles.map((f, i) => (
+                        <span
+                          key={i}
+                          className="text-[10px] font-mono text-slate-300 bg-black/50 border border-white/5 px-2 py-0.5 rounded-md"
+                        >
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Danh sách các dự án khác có thể chuyển đổi */}
+                {projects.filter((p) => p.id !== currentProject.id).length > 0 && (
+                  <div className="p-3 rounded-2xl bg-black/35 border border-white/[0.07] flex flex-col gap-2">
+                    <span className="text-xs font-bold text-slate-200">
+                      Chuyển sang dự án khác:
+                    </span>
+                    <div className="flex flex-col gap-1">
+                      {projects
+                        .filter((p) => p.id !== currentProject.id)
+                        .map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              soundManager.playChime();
+                              if (onSelectProject) onSelectProject(p.id);
+                            }}
+                            className="p-2 rounded-xl bg-black/40 hover:bg-white/5 border border-white/5 flex items-center justify-between text-left transition-all text-xs"
+                          >
+                            <div className="min-w-0">
+                              <span className="font-bold text-slate-200 block truncate">
+                                {p.name}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono block truncate">
+                                {p.path}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-amber-400 font-semibold shrink-0">
+                              Chọn
+                            </span>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-10 text-slate-500 text-xs">
+                Chưa có dự án nào được chọn.
               </div>
             )}
           </div>
