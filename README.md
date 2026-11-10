@@ -2,7 +2,8 @@
 
 Giao diện văn phòng ảo 3D tương tác mô phỏng các Subagents / Tác vụ tự động hóa của **Google Antigravity AI**, mang phong cách Cute Low-poly Isometric.
 
-![Preview](preview.jpg)
+![Preview]
+
 
 ---
 
