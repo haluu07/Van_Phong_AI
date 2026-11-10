@@ -6,7 +6,7 @@ import { db } from './db.js';
 import { antigravityBridge } from './antigravityBridge.js';
 
 const PORT = process.env.PORT || 3001;
-const AUTO_SIMULATION = process.env.AUTO_SIMULATION !== 'false'; // Mặc định bật mô phỏng tiến độ tác vụ
+const AUTO_SIMULATION = process.env.AUTO_SIMULATION === 'true'; // Tắt giả lập tự động, chỉ chạy thật theo lệnh A Long & Antigravity
 
 const app = express();
 app.use(cors());
@@ -64,10 +64,10 @@ wss.on('connection', (ws, req) => {
         const { agentId, task } = parsed.payload;
         const result = db.updateAgentTask(agentId, task);
         if (result) {
+          broadcast('INIT_STATE', db.getState());
           broadcast('AGENT_UPDATED', result);
           broadcast('TASK_ADDED', result.task);
           broadcast('METRICS_UPDATED', result.metrics);
-          runTaskSimulation(result.agent.id, result.task.id, task);
         }
       }
     } catch (err) {
@@ -80,48 +80,6 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// Hàm mô phỏng tiến độ làm việc của Agent (nếu bật AUTO_SIMULATION)
-function runTaskSimulation(agentId, taskId, taskTitle) {
-  if (!AUTO_SIMULATION) return;
-
-  // Bước 1: Sau 4 giây -> Agent log tiến trình xử lý
-  setTimeout(() => {
-    const logRes = db.addAgentLog(agentId, `Đang phân tích & xử lý bước 1 cho "${taskTitle}" (35%)`);
-    if (logRes) {
-      broadcast('AGENT_LOG', { agentId, log: logRes.log, agent: logRes.agent });
-    }
-    const updateTaskRes = db.updateTask(taskId, { progress: 35 });
-    if (updateTaskRes) {
-      broadcast('TASK_UPDATED', updateTaskRes.task);
-    }
-  }, 4000);
-
-  // Bước 2: Sau 9 giây -> Tiến trình 80%
-  setTimeout(() => {
-    const logRes = db.addAgentLog(agentId, `Đang kiểm tra chất lượng & kết xuất dữ liệu (80%)`);
-    if (logRes) {
-      broadcast('AGENT_LOG', { agentId, log: logRes.log, agent: logRes.agent });
-    }
-    const updateTaskRes = db.updateTask(taskId, { progress: 80 });
-    if (updateTaskRes) {
-      broadcast('TASK_UPDATED', updateTaskRes.task);
-    }
-  }, 9000);
-
-  // Bước 3: Sau 15 giây -> Hoàn tất nhiệm vụ
-  setTimeout(() => {
-    const updateTaskRes = db.updateTask(taskId, { status: 'Hoàn thành', progress: 100 });
-    if (updateTaskRes) {
-      broadcast('TASK_UPDATED', updateTaskRes.task);
-      broadcast('METRICS_UPDATED', updateTaskRes.metrics);
-    }
-    const agentRes = db.getAgent(agentId);
-    if (agentRes) {
-      broadcast('AGENT_UPDATED', { agent: agentRes.agent, room: agentRes.room });
-    }
-  }, 15000);
-}
-
 // ==========================================
 // REST API ROUTES
 // ==========================================
@@ -131,8 +89,10 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     name: 'Antigravity AI Office 3D Backend',
-    version: '1.0.0',
+    version: '2.0.0',
     uptime: Math.floor(process.uptime()),
+    activeAgents: db.getAgents().length,
+    activeTasks: db.getState().tasks.length,
     activeWebSocketClients: wss.clients.size,
     timestamp: new Date().toISOString()
   });
@@ -163,7 +123,7 @@ app.get('/api/rooms/:roomId', (req, res) => {
   res.json({ success: true, data: room });
 });
 
-// 5. Danh sách toàn bộ 16 Agent
+// 5. Danh sách toàn bộ Agent hiện đang được triệu hồi
 app.get('/api/agents', (req, res) => {
   res.json({
     success: true,
@@ -180,29 +140,30 @@ app.get('/api/agents/:agentId', (req, res) => {
   res.json({ success: true, data: found });
 });
 
-// 7. Giao việc cho 1 Agent cụ thể
+// 7. Giao việc cho 1 Agent (Nếu chưa có sẽ tự động triệu hồi Chibi vào bàn)
 app.post('/api/agents/:agentId/task', (req, res) => {
-  const { task } = req.body;
+  const { task, roomId, agentName, agentType, agentRole } = req.body;
   if (!task || !task.trim()) {
     return res.status(400).json({ success: false, message: 'Nhiệm vụ không được để trống' });
   }
 
-  const result = db.updateAgentTask(req.params.agentId, task.trim());
-  if (!result) {
-    return res.status(404).json({ success: false, message: 'Không tìm thấy agent' });
-  }
+  const result = db.updateAgentTask(req.params.agentId, task.trim(), {
+    roomId,
+    agentName,
+    agentType,
+    agentRole
+  });
 
-  // Phát sóng sự kiện real-time
+  // Phát sóng sự kiện real-time (kèm toàn bộ rooms để 3D render nhân vật mới)
+  broadcast('INIT_STATE', db.getState());
   broadcast('AGENT_UPDATED', result);
   broadcast('TASK_ADDED', result.task);
   broadcast('METRICS_UPDATED', result.metrics);
-
-  // Kích hoạt mô phỏng tiến độ
-  runTaskSimulation(req.params.agentId, result.task.id, task.trim());
+  broadcast('ANTIGRAVITY_LIVE_SYNC', { session: antigravityBridge.getSession() });
 
   res.json({
     success: true,
-    message: `Đã giao việc "${task}" cho ${result.agent.name}`,
+    message: `Đã triệu hồi & giao việc "${task}" cho ${result.agent.name} (${result.room.name})`,
     data: result
   });
 });
@@ -219,12 +180,31 @@ app.post('/api/agents/:agentId/status', (req, res) => {
     return res.status(404).json({ success: false, message: 'Không tìm thấy agent' });
   }
 
+  broadcast('INIT_STATE', db.getState());
   broadcast('AGENT_STATUS_CHANGED', result);
   broadcast('METRICS_UPDATED', result.metrics);
 
   res.json({
     success: true,
     message: `Đã đổi trạng thái của ${result.agent.name} thành "${result.agent.statusText}"`,
+    data: result
+  });
+});
+
+// 8b. Thu hồi / Xóa 1 Agent khỏi văn phòng
+app.delete('/api/agents/:agentId', (req, res) => {
+  const result = db.removeAgent(req.params.agentId);
+  if (!result) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy agent' });
+  }
+
+  broadcast('INIT_STATE', db.getState());
+  broadcast('METRICS_UPDATED', result.metrics);
+  broadcast('ANTIGRAVITY_LIVE_SYNC', { session: antigravityBridge.getSession() });
+
+  res.json({
+    success: true,
+    message: `Đã cho ${result.removed.name} nghỉ và rời văn phòng`,
     data: result
   });
 });
@@ -241,7 +221,8 @@ app.post('/api/agents/:agentId/log', (req, res) => {
     return res.status(404).json({ success: false, message: 'Không tìm thấy agent' });
   }
 
-  broadcast('AGENT_LOG', { agentId: req.params.agentId, log: result.log, agent: result.agent });
+  broadcast('INIT_STATE', db.getState());
+  broadcast('AGENT_LOG', { agentId: result.agent.id, log: result.log, agent: result.agent });
 
   res.json({
     success: true,
@@ -258,9 +239,9 @@ app.get('/api/tasks', (req, res) => {
   });
 });
 
-// 11. Tạo task mới
+// 11. Tạo task mới (và tự động triệu hồi Chibi vào phòng tương ứng)
 app.post('/api/tasks', (req, res) => {
-  const { title, roomId, roomName, assignee, assigneeId } = req.body;
+  const { title, roomId, roomName, assignee, assigneeId, agentType, agentRole } = req.body;
   if (!title || !title.trim()) {
     return res.status(400).json({ success: false, message: 'Tiêu đề nhiệm vụ không được để trống' });
   }
@@ -270,22 +251,22 @@ app.post('/api/tasks', (req, res) => {
     roomId,
     roomName,
     assignee,
-    assigneeId
+    assigneeId,
+    agentType,
+    agentRole
   });
 
+  broadcast('INIT_STATE', db.getState());
   broadcast('TASK_ADDED', result.task);
   if (result.agent) {
-    broadcast('AGENT_UPDATED', { agent: result.agent, room: result.room });
+    broadcast('AGENT_UPDATED', { agent: result.agent, room: result.room, metrics: result.metrics });
   }
   broadcast('METRICS_UPDATED', result.metrics);
-
-  if (result.agent) {
-    runTaskSimulation(result.agent.id, result.task.id, result.task.title);
-  }
+  broadcast('ANTIGRAVITY_LIVE_SYNC', { session: antigravityBridge.getSession() });
 
   res.status(201).json({
     success: true,
-    message: 'Tạo nhiệm vụ thành công',
+    message: 'Đã giao nhiệm vụ & triệu hồi nhân sự AI vào bàn',
     data: result
   });
 });
@@ -297,6 +278,7 @@ app.patch('/api/tasks/:taskId', (req, res) => {
     return res.status(404).json({ success: false, message: 'Không tìm thấy nhiệm vụ' });
   }
 
+  broadcast('INIT_STATE', db.getState());
   broadcast('TASK_UPDATED', result.task);
   broadcast('METRICS_UPDATED', result.metrics);
 
@@ -333,13 +315,16 @@ app.post('/api/webhook/agent-event', (req, res) => {
     return res.status(400).json({ success: false, message: 'agentId và event là bắt buộc' });
   }
 
-  console.log(`[WEBHOOK] Nhận event "${event}" từ agent "${agentId}":`, data);
-
   switch (event) {
     case 'TASK_START': {
       const taskTitle = data?.task || data?.title || 'Nhiệm vụ mới';
-      const result = db.updateAgentTask(agentId, taskTitle);
+      const result = db.updateAgentTask(agentId, taskTitle, {
+        roomId: data?.roomId,
+        agentName: data?.agentName,
+        agentType: data?.agentType
+      });
       if (result) {
+        broadcast('INIT_STATE', db.getState());
         broadcast('AGENT_UPDATED', result);
         broadcast('TASK_ADDED', result.task);
         broadcast('METRICS_UPDATED', result.metrics);
@@ -351,6 +336,7 @@ app.post('/api/webhook/agent-event', (req, res) => {
       if (logMessage) {
         const result = db.addAgentLog(agentId, logMessage);
         if (result) {
+          broadcast('INIT_STATE', db.getState());
           broadcast('AGENT_LOG', { agentId, log: result.log, agent: result.agent });
         }
       }
@@ -361,6 +347,7 @@ app.post('/api/webhook/agent-event', (req, res) => {
       if (taskId) {
         const result = db.updateTask(taskId, { status: 'Hoàn thành', progress: 100 });
         if (result) {
+          broadcast('INIT_STATE', db.getState());
           broadcast('TASK_UPDATED', result.task);
           broadcast('METRICS_UPDATED', result.metrics);
         }
@@ -372,23 +359,14 @@ app.post('/api/webhook/agent-event', (req, res) => {
       const statusText = data?.statusText;
       const result = db.updateAgentStatus(agentId, status, statusText);
       if (result) {
+        broadcast('INIT_STATE', db.getState());
         broadcast('AGENT_STATUS_CHANGED', result);
         broadcast('METRICS_UPDATED', result.metrics);
       }
       break;
     }
-    case 'THOUGHT': {
-      const thought = data?.thought;
-      if (thought) {
-        const result = db.addAgentThought(agentId, thought);
-        if (result) {
-          broadcast('AGENT_THOUGHT', { agentId, thought });
-        }
-      }
-      break;
-    }
     default:
-      console.warn(`[WEBHOOK] Event "${event}" không được nhận dạng`);
+      break;
   }
 
   res.json({
@@ -397,13 +375,15 @@ app.post('/api/webhook/agent-event', (req, res) => {
   });
 });
 
-// 16. Reset dữ liệu về ban đầu
+// 16. Reset dữ liệu về trống 100% (Giải tán toàn bộ nhân vật & xóa task)
 app.post('/api/reset', (req, res) => {
   const state = db.reset();
+  const session = antigravityBridge.resetSession();
   broadcast('RESET_STATE', state);
+  broadcast('ANTIGRAVITY_LIVE_SYNC', { session });
   res.json({
     success: true,
-    message: 'Đã reset dữ liệu văn phòng về ban đầu',
+    message: 'Đã giải tán toàn bộ nhân sự và làm trống văn phòng',
     data: state
   });
 });
@@ -428,9 +408,8 @@ app.post('/api/antigravity/event', (req, res) => {
 // Khởi động server
 server.listen(PORT, () => {
   console.log(`====================================================`);
-  console.log(`🚀 Antigravity AI Office Backend đang chạy!`);
+  console.log(`🚀 Antigravity AI Office Backend 2.0 đang chạy!`);
   console.log(`📡 REST API:       http://localhost:${PORT}/api`);
   console.log(`⚡ WebSocket URL:  ws://localhost:${PORT}/ws`);
-  console.log(`🩺 Health check:   http://localhost:${PORT}/api/health`);
   console.log(`====================================================`);
 });

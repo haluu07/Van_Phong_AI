@@ -4,12 +4,7 @@ import {
   Send,
   Sparkles,
   Terminal,
-  Coffee,
-  Laptop,
-  Gamepad2,
-  Clock,
-  CheckCircle2,
-  Zap
+  Trash2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundManager } from '../utils/soundEffects';
@@ -19,7 +14,7 @@ const STATUS_ACTIONS = [
   { id: 'coffee', label: 'Pha cà phê', icon: '☕', text: 'Đi pha cà phê' },
   { id: 'break', label: 'Bóng bàn', icon: '🏓', text: 'Chơi bóng bàn' },
   { id: 'gaming', label: 'Chơi game', icon: '🎮', text: 'Chơi máy game' },
-  { id: 'idle', label: 'Nghỉ chờ', icon: '💤', text: 'Nghỉ máy, chờ giờ chạy' }
+  { id: 'idle', label: 'Nghỉ chờ', icon: '💤', text: 'Nghỉ máy, chờ lệnh' }
 ];
 
 const QUICK_TASKS = [
@@ -34,7 +29,8 @@ export default function AgentModal({
   room,
   onClose,
   onUpdateAgentTask,
-  onUpdateAgentStatus
+  onUpdateAgentStatus,
+  onDismissAgent
 }) {
   const [taskInput, setTaskInput] = useState('');
 
@@ -68,29 +64,43 @@ export default function AgentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
       <div className="glass-panel w-full max-w-xl rounded-3xl p-6 shadow-2xl relative overflow-hidden flex flex-col gap-4 border border-white/15">
-        {/* Accent bar phía trên cùng theo màu phòng */}
         <div
           className="absolute top-0 left-0 right-0 h-1.5"
           style={{ backgroundColor: room?.color || '#f59e0b' }}
         />
 
-        {/* Nút đóng */}
-        <button
-          onClick={() => {
-            soundManager.playPop();
-            onClose();
-          }}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        {/* Nút đóng & Thu hồi */}
+        <div className="absolute top-4 right-4 flex items-center gap-1.5">
+          {onDismissAgent && (
+            <button
+              onClick={() => {
+                soundManager.playPop();
+                onDismissAgent(agent.id);
+              }}
+              title="Cho nhân sự này nghỉ và rời khỏi văn phòng"
+              className="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[11px] font-bold flex items-center gap-1 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Cho nghỉ</span>
+            </button>
+          )}
+          <button
+            onClick={() => {
+              soundManager.playPop();
+              onClose();
+            }}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Header nhân vật */}
         <div className="flex items-center gap-4 pt-1">
           <div className="w-16 h-16 rounded-2xl bg-slate-800/90 border border-white/15 flex items-center justify-center text-3xl shadow-inner shrink-0">
             {agent.avatar}
           </div>
-          <div className="min-w-0 flex-1 pr-8">
+          <div className="min-w-0 flex-1 pr-24">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-extrabold text-white tracking-tight">
                 {agent.name}
@@ -211,7 +221,7 @@ export default function AgentModal({
               type="text"
               value={taskInput}
               onChange={(e) => setTaskInput(e.target.value)}
-              placeholder={`Giao nhiệm vụ mới cho ${agent.name}...`}
+              placeholder={`Giao nhiệm vụ tiếp theo cho ${agent.name}...`}
               className="flex-1 bg-black/50 border border-white/15 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
             />
             <button

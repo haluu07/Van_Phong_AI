@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { INITIAL_ROOMS, INITIAL_TASKS } from './defaultData.js';
+import { INITIAL_ROOMS, INITIAL_TASKS, CHIBI_PRESETS, AVATAR_TYPES } from './defaultData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,7 +19,7 @@ const STATUS_STYLES = {
   },
   gaming: {
     statusText: 'Chơi máy game',
-    statusColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+    statusColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
   },
   chat: {
     statusText: 'Ra pantry trò chuyện',
@@ -27,10 +27,10 @@ const STATUS_STYLES = {
   },
   coffee: {
     statusText: 'Đi pha cà phê',
-    statusColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+    statusColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
   },
   idle: {
-    statusText: 'Nghỉ máy, chờ giờ chạy',
+    statusText: 'Nghỉ máy, chờ lệnh',
     statusColor: 'bg-slate-500/20 text-slate-300 border-slate-500/30'
   },
   spotlight: {
@@ -54,7 +54,7 @@ class OfficeDatabase {
         if (parsed.rooms && Array.isArray(parsed.rooms)) {
           this.rooms = parsed.rooms;
           this.tasks = parsed.tasks || [];
-          console.log(`[DB] Đã tải dữ liệu từ ${DB_FILE} (${this.rooms.length} phòng, ${this.tasks.length} task)`);
+          console.log(`[DB] Đã tải dữ liệu từ ${DB_FILE} (${this.getAgents().length} nhân vật, ${this.tasks.length} task)`);
           return;
         }
       }
@@ -62,7 +62,7 @@ class OfficeDatabase {
       console.warn('[DB] Lỗi đọc db.json, khởi tạo lại từ defaultData:', err.message);
     }
 
-    // Khởi tạo từ defaultData
+    // Khởi tạo sạch (0 nhân vật, 0 task)
     this.rooms = JSON.parse(JSON.stringify(INITIAL_ROOMS));
     this.tasks = JSON.parse(JSON.stringify(INITIAL_TASKS));
     this.save();
@@ -147,9 +147,11 @@ class OfficeDatabase {
   }
 
   getAgent(agentId) {
+    if (!agentId) return null;
+    const normalized = String(agentId).toLowerCase().trim();
     for (const r of this.rooms) {
       for (const m of r.members || []) {
-        if (m.id === agentId) {
+        if (m.id.toLowerCase() === normalized || m.name.toLowerCase() === normalized) {
           return { agent: m, room: r };
         }
       }
@@ -157,23 +159,100 @@ class OfficeDatabase {
     return null;
   }
 
-  updateAgentTask(agentId, newTask) {
-    const found = this.getAgent(agentId);
+  // Tự động triệu hồi (spawn) một Chibi Agent vào phòng khi được giao việc
+  spawnOrGetAgent({ agentId, agentName, agentType, agentRole, roomId }) {
+    // 1. Kiểm tra nếu agent đã tồn tại trong văn phòng
+    if (agentId) {
+      const existing = this.getAgent(agentId);
+      if (existing) return existing;
+    }
+    if (agentName) {
+      const existingByName = this.getAgent(agentName);
+      if (existingByName) return existingByName;
+    }
+
+    // 2. Tra cứu trong CHIBI_PRESETS nếu truyền mã quen thuộc (mochi, dung, cuong, sua, along...)
+    const key = String(agentId || agentName || '').toLowerCase().trim();
+    const preset = CHIBI_PRESETS[key];
+
+    const targetRoomId = roomId || preset?.roomId || 'room_douyin';
+    const room = this.getRoom(targetRoomId) || this.rooms[1] || this.rooms[0];
+
+    // 3. Chọn vị trí bàn trống trong phòng
+    const memberIndex = room.members.length;
+    const slots = room.deskSlots && room.deskSlots.length > 0
+      ? room.deskSlots
+      : [[room.center[0], 0, room.center[2]]];
+    const baseSlot = slots[memberIndex % slots.length];
+    // Nếu vượt số bàn thì dịch nhẹ để không trùng nhau
+    const offset = Math.floor(memberIndex / slots.length) * 1.4;
+    const deskPos = [baseSlot[0] + offset, baseSlot[1], baseSlot[2]];
+
+    // 4. Chọn hình dáng Chibi
+    const randomAvatarObj = AVATAR_TYPES[memberIndex % AVATAR_TYPES.length];
+    const finalType = agentType || preset?.type || randomAvatarObj.type;
+    const matchedAvatarObj = AVATAR_TYPES.find(a => a.type === finalType) || randomAvatarObj;
+    const finalAvatar = preset?.avatar || matchedAvatarObj.avatar;
+    const finalName = agentName || preset?.name || `Agent #${this.getAgents().length + 1}`;
+    const finalId = agentId || key || `agent_${Date.now()}`;
+    const finalRole = agentRole || preset?.role || 'Chuyên viên AI';
+
+    const timestamp = new Date().toLocaleTimeString('vi-VN');
+    const newAgent = {
+      id: finalId,
+      name: finalName,
+      role: finalRole,
+      type: finalType,
+      avatar: finalAvatar,
+      status: finalId === 'tom' || room.id === 'room_report' && memberIndex === 0 ? 'spotlight' : 'working',
+      statusText: 'Đang làm việc',
+      statusColor: STATUS_STYLES.working.statusColor,
+      currentTask: 'Vừa được triệu hồi vào bàn làm việc',
+      pos: [...deskPos],
+      deskPos: [...deskPos],
+      thoughts: [
+        `Sếp A Long vừa giao việc, bắt tay vào xử lý ngay thôi!`
+      ],
+      logs: [
+        `[${timestamp}] ✨ Triệu hồi nhân sự AI "${finalName}" vào ${room.name}`
+      ]
+    };
+
+    room.members.push(newAgent);
+    this.save();
+    return { agent: newAgent, room };
+  }
+
+  updateAgentTask(agentId, newTask, options = {}) {
+    const found = this.spawnOrGetAgent({
+      agentId,
+      agentName: options.agentName,
+      agentType: options.agentType,
+      agentRole: options.agentRole,
+      roomId: options.roomId
+    });
     if (!found) return null;
 
     const { agent, room } = found;
-    agent.status = 'working';
-    agent.statusText = 'Đang làm việc';
-    agent.statusColor = STATUS_STYLES.working.statusColor;
+    agent.status = room.id === 'room_report' && agent.id === 'tom' ? 'spotlight' : 'working';
+    agent.statusText = agent.status === 'spotlight' ? 'Đang đứng báo cáo' : 'Đang làm việc';
+    agent.statusColor = STATUS_STYLES[agent.status].statusColor;
     agent.currentTask = newTask;
+    // Đưa nhân vật về lại bàn làm việc
+    if (agent.deskPos) {
+      agent.pos = [...agent.deskPos];
+    }
 
     const timestamp = new Date().toLocaleTimeString('vi-VN');
     agent.logs = [
-      `[${timestamp}] Nhận nhiệm vụ mới: "${newTask}"`,
+      `[${timestamp}] Nhận nhiệm vụ: "${newTask}"`,
       ...(agent.logs || [])
     ];
+    agent.thoughts = [
+      `Đang tập trung xử lý: "${newTask}"`,
+      ...(agent.thoughts || [])
+    ];
 
-    // Thêm task vào danh sách tasks
     const taskObj = {
       id: 'task_' + Date.now(),
       title: newTask,
@@ -182,17 +261,17 @@ class OfficeDatabase {
       assignee: agent.name,
       assigneeId: agent.id,
       status: 'Đang làm việc',
-      progress: 0,
+      progress: 10,
       time: timestamp
     };
     this.tasks.unshift(taskObj);
 
     this.save();
-    return { agent, room, task: taskObj, metrics: this.calculateMetrics() };
+    return { agent, room, task: taskObj, rooms: this.rooms, metrics: this.calculateMetrics() };
   }
 
   updateAgentStatus(agentId, newStatus, customStatusText = null) {
-    const found = this.getAgent(agentId);
+    const found = this.spawnOrGetAgent({ agentId });
     if (!found) return null;
 
     const { agent, room } = found;
@@ -205,18 +284,46 @@ class OfficeDatabase {
     agent.statusText = customStatusText || style.statusText;
     agent.statusColor = style.statusColor;
 
+    // Di chuyển vị trí nhân vật theo trạng thái
+    if (newStatus === 'break') {
+      agent.pos = [5.2, 0, -7.8]; // Bàn bóng bàn
+    } else if (newStatus === 'coffee' || newStatus === 'chat') {
+      agent.pos = [3.8, 0, -5.5]; // Khu pha cà phê Pantry
+    } else if (newStatus === 'gaming') {
+      agent.pos = [7.2, 0, -6.5]; // Khu giải trí
+    } else if (newStatus === 'spotlight') {
+      agent.pos = [0, 0, 0]; // Bục Spotlight trung tâm
+    } else if (agent.deskPos) {
+      agent.pos = [...agent.deskPos]; // Về bàn làm việc
+    }
+
     const timestamp = new Date().toLocaleTimeString('vi-VN');
     agent.logs = [
-      `[${timestamp}] Cập nhật trạng thái: "${agent.statusText}"`,
+      `[${timestamp}] Chuyển trạng thái: "${agent.statusText}"`,
       ...(agent.logs || [])
     ];
 
     this.save();
-    return { agent, room, metrics: this.calculateMetrics() };
+    return { agent, room, rooms: this.rooms, metrics: this.calculateMetrics() };
+  }
+
+  removeAgent(agentId) {
+    const normalized = String(agentId).toLowerCase().trim();
+    for (const r of this.rooms) {
+      const idx = r.members.findIndex(
+        m => m.id.toLowerCase() === normalized || m.name.toLowerCase() === normalized
+      );
+      if (idx !== -1) {
+        const removed = r.members.splice(idx, 1)[0];
+        this.save();
+        return { removed, rooms: this.rooms, metrics: this.calculateMetrics() };
+      }
+    }
+    return null;
   }
 
   addAgentLog(agentId, logMessage) {
-    const found = this.getAgent(agentId);
+    const found = this.spawnOrGetAgent({ agentId });
     if (!found) return null;
 
     const { agent } = found;
@@ -225,11 +332,11 @@ class OfficeDatabase {
     agent.logs = [formattedLog, ...(agent.logs || [])];
 
     this.save();
-    return { agent, log: formattedLog };
+    return { agent, log: formattedLog, rooms: this.rooms };
   }
 
   addAgentThought(agentId, thought) {
-    const found = this.getAgent(agentId);
+    const found = this.spawnOrGetAgent({ agentId });
     if (!found) return null;
 
     const { agent } = found;
@@ -238,22 +345,17 @@ class OfficeDatabase {
     return { agent, thought };
   }
 
-  createTask({ title, roomId, roomName, assignee, assigneeId }) {
-    let resolvedRoom = null;
-    let resolvedAgent = null;
+  createTask({ title, roomId, roomName, assignee, assigneeId, agentType, agentRole }) {
+    const spawnRes = this.spawnOrGetAgent({
+      agentId: assigneeId,
+      agentName: assignee,
+      agentType,
+      agentRole,
+      roomId: roomId || 'room_douyin'
+    });
 
-    if (roomId) {
-      resolvedRoom = this.getRoom(roomId);
-    }
-    if (assigneeId) {
-      const found = this.getAgent(assigneeId);
-      if (found) {
-        resolvedAgent = found.agent;
-        if (!resolvedRoom) resolvedRoom = found.room;
-      }
-    } else if (resolvedRoom && resolvedRoom.members && resolvedRoom.members.length > 0) {
-      resolvedAgent = resolvedRoom.members[0];
-    }
+    const resolvedAgent = spawnRes?.agent;
+    const resolvedRoom = spawnRes?.room;
 
     const timestamp = new Date().toLocaleTimeString('vi-VN');
     const taskObj = {
@@ -261,10 +363,10 @@ class OfficeDatabase {
       title,
       roomName: resolvedRoom ? resolvedRoom.name : (roomName || 'Văn phòng'),
       roomId: resolvedRoom ? resolvedRoom.id : roomId,
-      assignee: resolvedAgent ? resolvedAgent.name : (assignee || 'Bot tự động'),
+      assignee: resolvedAgent ? resolvedAgent.name : (assignee || 'Bot AI'),
       assigneeId: resolvedAgent ? resolvedAgent.id : assigneeId,
-      status: 'Đang xử lý',
-      progress: 0,
+      status: 'Đang làm việc',
+      progress: 10,
       time: timestamp
     };
 
@@ -273,15 +375,28 @@ class OfficeDatabase {
       resolvedAgent.statusText = 'Đang làm việc';
       resolvedAgent.statusColor = STATUS_STYLES.working.statusColor;
       resolvedAgent.currentTask = title;
+      if (resolvedAgent.deskPos) {
+        resolvedAgent.pos = [...resolvedAgent.deskPos];
+      }
       resolvedAgent.logs = [
         `[${timestamp}] Nhận nhiệm vụ mới: "${title}"`,
         ...(resolvedAgent.logs || [])
+      ];
+      resolvedAgent.thoughts = [
+        `Đang thực thi nhiệm vụ: "${title}"`,
+        ...(resolvedAgent.thoughts || [])
       ];
     }
 
     this.tasks.unshift(taskObj);
     this.save();
-    return { task: taskObj, agent: resolvedAgent, room: resolvedRoom, metrics: this.calculateMetrics() };
+    return {
+      task: taskObj,
+      agent: resolvedAgent,
+      room: resolvedRoom,
+      rooms: this.rooms,
+      metrics: this.calculateMetrics()
+    };
   }
 
   updateTask(taskId, updates) {
@@ -290,7 +405,6 @@ class OfficeDatabase {
 
     Object.assign(task, updates);
 
-    // Nếu task hoàn thành, cập nhật log của agent
     if (updates.status === 'Hoàn thành' && task.assigneeId) {
       const found = this.getAgent(task.assigneeId);
       if (found) {
@@ -299,12 +413,15 @@ class OfficeDatabase {
           `[${timestamp}] ✅ Hoàn thành nhiệm vụ: "${task.title}"`,
           ...(found.agent.logs || [])
         ];
-        found.agent.currentTask = 'Chờ nhiệm vụ tiếp theo...';
+        found.agent.status = 'idle';
+        found.agent.statusText = 'Đã xong việc • Chờ lệnh';
+        found.agent.statusColor = STATUS_STYLES.idle.statusColor;
+        found.agent.currentTask = 'Hoàn thành nhiệm vụ • Đang chờ lệnh mới';
       }
     }
 
     this.save();
-    return { task, metrics: this.calculateMetrics() };
+    return { task, rooms: this.rooms, metrics: this.calculateMetrics() };
   }
 
   deleteTask(taskId) {

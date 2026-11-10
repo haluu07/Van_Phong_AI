@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, Compass, Plus, Clock, Wifi, Terminal, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, Compass, Plus, Clock, Wifi, Terminal } from 'lucide-react';
 import { soundManager } from '../utils/soundEffects';
 
 export default function TopBar({
@@ -36,34 +36,41 @@ export default function TopBar({
     setIsTouring(!isTouring);
   };
 
+  const totalAgents =
+    (metrics?.working ?? 0) +
+    (metrics?.chat ?? 0) +
+    (metrics?.gaming ?? 0) +
+    (metrics?.idle ?? 0) +
+    (metrics?.away ?? 0);
+
   const statusChips = [
     {
       label: 'ngồi máy',
-      count: metrics?.working ?? 4,
+      count: metrics?.working ?? 0,
       dotColor: 'bg-emerald-400 animate-pulse',
       pillClass: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
     },
     {
       label: 'trò chuyện',
-      count: metrics?.chat ?? 1,
+      count: metrics?.chat ?? 0,
       dotColor: 'bg-amber-400',
       pillClass: 'bg-amber-500/10 text-amber-300 border-amber-500/20'
     },
     {
       label: 'giải trí',
-      count: metrics?.gaming ?? 3,
+      count: metrics?.gaming ?? 0,
       dotColor: 'bg-cyan-400',
       pillClass: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
     },
     {
       label: 'nghỉ chờ',
-      count: metrics?.idle ?? 2,
+      count: metrics?.idle ?? 0,
       dotColor: 'bg-slate-400',
       pillClass: 'bg-slate-500/10 text-slate-300 border-slate-500/20'
     },
     {
       label: 'pantry',
-      count: metrics?.away ?? 4,
+      count: metrics?.away ?? 0,
       dotColor: 'bg-rose-400',
       pillClass: 'bg-rose-500/10 text-rose-300 border-rose-500/20'
     }
@@ -92,12 +99,14 @@ export default function TopBar({
               <span className="text-slate-600">•</span>
               <span>6 phòng ban</span>
               <span className="text-slate-600">•</span>
-              <span className="text-emerald-400 font-mono text-[10px]">16 AI Agents</span>
+              <span className="text-emerald-400 font-mono text-[10px]">
+                {totalAgents} AI Agents đang hoạt động
+              </span>
             </p>
           </div>
         </div>
 
-        {/* Các chip đếm số lượng nhân sự AI theo trạng thái */}
+        {/* Các chip đếm số lượng nhân sự AI theo trạng thái thực tế */}
         <div className="hidden xl:flex items-center gap-1.5 glass-panel-subtle px-2.5 py-1.5 rounded-2xl">
           {statusChips.map((chip, idx) => (
             <span
@@ -114,7 +123,6 @@ export default function TopBar({
 
       {/* Khối bên phải: Đồng hồ, Trạng thái kết nối, Antigravity Live, Giao việc & Tham quan */}
       <div className="flex items-center gap-2 pointer-events-auto">
-        {/* Đồng hồ Việt Nam */}
         <div className="hidden md:flex glass-panel-subtle px-3 py-2 rounded-2xl items-center gap-2 text-xs">
           <Clock className="w-3.5 h-3.5 text-amber-400" />
           <span className="font-mono font-bold text-slate-100 tracking-wider">
@@ -125,7 +133,6 @@ export default function TopBar({
           </span>
         </div>
 
-        {/* Trạng thái kết nối WebSocket */}
         <div
           className={`hidden sm:flex items-center gap-1.5 glass-panel-subtle px-3 py-2 rounded-2xl text-[11px] font-semibold border ${
             isConnected
@@ -141,7 +148,6 @@ export default function TopBar({
           <span className="font-mono">{isConnected ? 'WS LIVE' : 'RECONNECTING'}</span>
         </div>
 
-        {/* Nút Antigravity Live Bridge */}
         <button
           id="btn-antigravity-live"
           onClick={() => {
@@ -158,7 +164,6 @@ export default function TopBar({
           <span>Antigravity Live</span>
         </button>
 
-        {/* Nút Giao việc */}
         <button
           id="btn-assign-task"
           onClick={() => {
@@ -171,7 +176,6 @@ export default function TopBar({
           <span>Giao việc</span>
         </button>
 
-        {/* Nút Tham quan Camera */}
         <button
           id="btn-tour-camera"
           onClick={handleToggleTour}
@@ -185,7 +189,6 @@ export default function TopBar({
           <span>{isTouring ? 'Dừng Tour' : 'Tham quan'}</span>
         </button>
 
-        {/* Nút bật/tắt âm thanh */}
         <button
           id="btn-toggle-sound"
           onClick={handleToggleSound}

@@ -22,16 +22,14 @@ export default function App() {
   const [antigravitySession, setAntigravitySession] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [latestLog, setLatestLog] = useState(
-    '[Antigravity AI] Đã kết nối trực tiếp phiên làm việc của Sếp A Long vào Văn Phòng 3D'
+    'Văn phòng đang trống • Chờ Sếp A Long giao việc để triệu hồi nhân sự AI'
   );
 
   const wsClientRef = useRef(null);
 
-  // 1. Tải trạng thái ban đầu từ REST API & Khởi tạo WebSocket Realtime
   useEffect(() => {
     let isMounted = true;
 
-    // Lấy dữ liệu ban đầu từ REST API
     api.fetchOfficeState().then((state) => {
       if (!isMounted || !state) return;
       if (state.rooms) setRooms(state.rooms);
@@ -39,17 +37,15 @@ export default function App() {
       if (state.metrics) setMetrics(state.metrics);
     });
 
-    // Lấy dữ liệu phiên Antigravity Live ban đầu
     api.fetchAntigravitySession().then((sessionData) => {
       if (isMounted && sessionData) {
         setAntigravitySession(sessionData);
         if (sessionData.currentAction) {
-          setLatestLog(`[Antigravity Live] ${sessionData.currentAction}`);
+          setLatestLog(sessionData.currentAction);
         }
       }
     });
 
-    // Kết nối WebSocket Real-time
     const handleWsMessage = (type, data) => {
       if (!isMounted) return;
 
@@ -65,7 +61,7 @@ export default function App() {
           if (data?.session) {
             setAntigravitySession(data.session);
             if (data.session.currentAction) {
-              setLatestLog(`[Antigravity Live] ${data.session.currentAction}`);
+              setLatestLog(data.session.currentAction);
             }
           }
           break;
@@ -77,45 +73,25 @@ export default function App() {
         }
 
         case 'AGENT_UPDATED': {
-          const { agent, room, metrics: newMetrics } = data;
+          const { agent, rooms: updatedRooms, metrics: newMetrics } = data;
           if (newMetrics) setMetrics(newMetrics);
+          if (updatedRooms) setRooms(updatedRooms);
           if (agent?.logs?.[0]) {
             setLatestLog(`${agent.avatar || '🤖'} ${agent.name}: ${agent.logs[0]}`);
           }
-
-          setRooms((prevRooms) =>
-            prevRooms.map((r) => {
-              if (room && r.id === room.id) {
-                return {
-                  ...r,
-                  members: r.members.map((m) => (m.id === agent.id ? agent : m))
-                };
-              }
-              return {
-                ...r,
-                members: r.members.map((m) => (m.id === agent.id ? agent : m))
-              };
-            })
-          );
-
           setSelectedAgent((prev) => (prev && prev.id === agent.id ? agent : prev));
           break;
         }
 
         case 'AGENT_STATUS_CHANGED': {
-          const { agent, metrics: newMetrics } = data;
+          const { agent, rooms: updatedRooms, metrics: newMetrics } = data;
           if (newMetrics) setMetrics(newMetrics);
+          if (updatedRooms) setRooms(updatedRooms);
           if (agent) {
-            setLatestLog(`${agent.avatar || '🤖'} ${agent.name} chuyển trạng thái: ${agent.statusText}`);
+            setLatestLog(
+              `${agent.avatar || '🤖'} ${agent.name} chuyển trạng thái: ${agent.statusText}`
+            );
           }
-
-          setRooms((prevRooms) =>
-            prevRooms.map((r) => ({
-              ...r,
-              members: r.members.map((m) => (m.id === agent.id ? agent : m))
-            }))
-          );
-
           setSelectedAgent((prev) => (prev && prev.id === agent.id ? agent : prev));
           break;
         }
@@ -125,40 +101,12 @@ export default function App() {
           if (log) {
             setLatestLog(`[${agent?.name || agentId}] ${log}`);
           }
-          setRooms((prevRooms) =>
-            prevRooms.map((r) => ({
-              ...r,
-              members: r.members.map((m) => {
-                if (m.id === agentId) {
-                  return agent || { ...m, logs: [log, ...(m.logs || [])] };
-                }
-                return m;
-              })
-            }))
-          );
-
           setSelectedAgent((prev) => {
             if (prev && prev.id === agentId) {
               return agent || { ...prev, logs: [log, ...(prev.logs || [])] };
             }
             return prev;
           });
-          break;
-        }
-
-        case 'AGENT_THOUGHT': {
-          const { agentId, thought } = data;
-          setRooms((prevRooms) =>
-            prevRooms.map((r) => ({
-              ...r,
-              members: r.members.map((m) => {
-                if (m.id === agentId) {
-                  return { ...m, thoughts: [thought, ...(m.thoughts || [])] };
-                }
-                return m;
-              })
-            }))
-          );
           break;
         }
 
@@ -191,6 +139,8 @@ export default function App() {
           if (data.rooms) setRooms(data.rooms);
           if (data.tasks) setTasks(data.tasks);
           if (data.metrics) setMetrics(data.metrics);
+          setSelectedAgent(null);
+          setLatestLog('Đã giải tán toàn bộ nhân sự • Văn phòng trống 100%');
           break;
         }
 
@@ -221,71 +171,36 @@ export default function App() {
     setIsTouring(false);
   };
 
-  // Cập nhật việc mới cho từng agent cụ thể -> Gọi API Backend thật
   const handleUpdateAgentTask = (agentId, newTask) => {
     api.assignAgentTask(agentId, newTask);
-
-    const timestamp = new Date().toLocaleTimeString('vi-VN');
-    setRooms((prevRooms) =>
-      prevRooms.map((room) => ({
-        ...room,
-        members: room.members.map((member) => {
-          if (member.id === agentId) {
-            return {
-              ...member,
-              status: 'working',
-              statusText: 'Đang làm việc',
-              statusColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-              currentTask: newTask,
-              logs: [
-                `[${timestamp}] Nhận nhiệm vụ mới: "${newTask}"`,
-                ...(member.logs || [])
-              ]
-            };
-          }
-          return member;
-        })
-      }))
-    );
-
-    setTasks((prev) => [
-      {
-        id: 'task_' + Date.now(),
-        title: newTask,
-        roomName: selectedRoom?.name || 'Văn phòng',
-        assignee: selectedAgent?.name || 'Bot',
-        status: 'Đang làm việc',
-        progress: 15,
-        time: timestamp
-      },
-      ...prev
-    ]);
-
     setSelectedAgent(null);
   };
 
-  // Đổi trạng thái hoạt động ngay trong AgentModal
   const handleUpdateAgentStatus = (agentId, status, statusText) => {
     api.updateAgentStatus(agentId, status, statusText);
   };
 
-  // Đánh dấu hoàn thành task từ Sidebar
+  const handleDismissAgent = async (agentId) => {
+    await api.dismissAgent(agentId);
+    setSelectedAgent(null);
+  };
+
   const handleCompleteTask = (taskId) => {
     api.updateTask(taskId, { status: 'Hoàn thành', progress: 100 });
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, status: 'Hoàn thành', progress: 100 } : t
-      )
-    );
   };
 
-  // Giao việc mới từ Modal TopBar -> Gọi API Backend thật
-  const handleAddNewTask = (newTaskObj) => {
-    api.createTask(newTaskObj);
-    setTasks((prev) => [newTaskObj, ...prev]);
+  const handleResetOffice = async () => {
+    await api.resetOffice();
+    setSelectedAgent(null);
   };
 
-  // Gửi sự kiện mới vào phiên Antigravity Live
+  const handleAddNewTask = async (newTaskObj) => {
+    const res = await api.createTask(newTaskObj);
+    if (res?.data?.room?.id) {
+      setCameraPreset(res.data.room.id);
+    }
+  };
+
   const handleSendAntigravityEvent = (eventData) => {
     api.sendAntigravityEvent(eventData);
   };
@@ -321,6 +236,8 @@ export default function App() {
         onSelectRoom={handleSelectRoom}
         tasks={tasks}
         onCompleteTask={handleCompleteTask}
+        onResetOffice={handleResetOffice}
+        onOpenAssignTask={() => setIsAssignTaskOpen(true)}
         onOpenAntigravityLive={() => setIsAntigravityLiveOpen(true)}
       />
 
@@ -340,9 +257,10 @@ export default function App() {
         onClose={() => setSelectedAgent(null)}
         onUpdateAgentTask={handleUpdateAgentTask}
         onUpdateAgentStatus={handleUpdateAgentStatus}
+        onDismissAgent={handleDismissAgent}
       />
 
-      {/* 6. Modal Giao việc tổng */}
+      {/* 6. Modal Giao việc & Triệu hồi Chibi */}
       <AssignTaskModal
         isOpen={isAssignTaskOpen}
         onClose={() => setIsAssignTaskOpen(false)}

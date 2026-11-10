@@ -1,4 +1,4 @@
-// Client API & WebSocket kết nối Backend thật cho Văn Phòng AI
+// Client API & WebSocket kết nối Backend thật cho Văn Phòng AI (Không chứa mock data)
 import { INITIAL_ROOMS, OFFICE_METRICS } from '../data/officeData';
 
 const API_BASE = '/api';
@@ -12,39 +12,22 @@ export const api = {
       const json = await res.json();
       return json.data;
     } catch (err) {
-      console.warn('[API] Không kết nối được backend, sử dụng dữ liệu tĩnh:', err.message);
+      console.warn('[API] Không kết nối được backend:', err.message);
       return {
         rooms: INITIAL_ROOMS,
-        tasks: [
-          {
-            id: 'task_1',
-            title: 'Tải 15 video Douyin ngách AI Video',
-            roomName: 'Phòng Douyin',
-            assignee: 'Mochi',
-            status: 'Đang xử lý',
-            time: '15:45'
-          },
-          {
-            id: 'task_2',
-            title: 'Cắt 8 đoạn viral livestream A Long',
-            roomName: 'Phòng Cắt clip',
-            assignee: 'Mít',
-            status: 'Đang xử lý',
-            time: '15:55'
-          }
-        ],
+        tasks: [],
         metrics: OFFICE_METRICS
       };
     }
   },
 
-  // Giao việc cho 1 agent cụ thể
-  async assignAgentTask(agentId, task) {
+  // Giao việc cho 1 agent cụ thể (hoặc triệu hồi mới)
+  async assignAgentTask(agentId, task, options = {}) {
     try {
       const res = await fetch(`${API_BASE}/agents/${agentId}/task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task })
+        body: JSON.stringify({ task, ...options })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
@@ -70,6 +53,20 @@ export const api = {
     }
   },
 
+  // Cho 1 agent nghỉ và rời khỏi văn phòng 3D
+  async dismissAgent(agentId) {
+    try {
+      const res = await fetch(`${API_BASE}/agents/${agentId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] Lỗi dismissAgent:', err.message);
+      return null;
+    }
+  },
+
   // Thêm log trực tiếp vào Terminal agent
   async addAgentLog(agentId, log) {
     try {
@@ -86,7 +83,7 @@ export const api = {
     }
   },
 
-  // Tạo task mới từ modal tổng
+  // Tạo task mới từ modal tổng (sẽ tự động triệu hồi Chibi vào phòng)
   async createTask(taskData) {
     try {
       const res = await fetch(`${API_BASE}/tasks`, {
@@ -118,7 +115,7 @@ export const api = {
     }
   },
 
-  // Reset dữ liệu về mặc định
+  // Giải tán toàn bộ nhân vật & xóa toàn bộ task
   async resetOffice() {
     try {
       const res = await fetch(`${API_BASE}/reset`, { method: 'POST' });
@@ -174,17 +171,13 @@ export class OfficeWebSocketClient {
   connect() {
     this.isClosed = false;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Sử dụng host hiện tại thông qua Vite proxy hoặc cổng 3001
     const wsUrl = `${protocol}//${window.location.host}/ws`;
 
     try {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('[WS Client] Đã kết nối thành công với Backend!');
         if (this.onConnectionChange) this.onConnectionChange(true);
-
-        // Heartbeat định kỳ 25s
         if (this.pingInterval) clearInterval(this.pingInterval);
         this.pingInterval = setInterval(() => {
           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -209,17 +202,14 @@ export class OfficeWebSocketClient {
         if (this.onConnectionChange) this.onConnectionChange(false);
         if (this.pingInterval) clearInterval(this.pingInterval);
         if (!this.isClosed) {
-          // Thử kết nối lại sau 3s
           this.reconnectTimeout = setTimeout(() => this.connect(), 3000);
         }
       };
 
-      this.ws.onerror = (err) => {
-        console.warn('[WS Client] Lỗi kết nối WebSocket:', err);
+      this.ws.onerror = () => {
         this.ws.close();
       };
-    } catch (e) {
-      console.warn('[WS Client] Ngoại lệ khi tạo WebSocket:', e);
+    } catch {
       if (!this.isClosed) {
         this.reconnectTimeout = setTimeout(() => this.connect(), 3000);
       }

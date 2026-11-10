@@ -1,4 +1,4 @@
-// Antigravity Live Bridge: Kết nối trực tiếp phiên làm việc hiện tại với Văn Phòng 3D
+// Antigravity Live Bridge: Kết nối trực tiếp phiên làm việc hiện tại với Văn Phòng 3D (Sạch 100%, không chứa mock data)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,53 +9,23 @@ const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const WORKSPACE_DIR = path.resolve(__dirname, '..');
-const TASKS_DIR = '/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p/55b91c36-7f1d-468c-88bb-fd7d4783ab79/.system_generated/tasks';
 
 class AntigravityBridge {
   constructor() {
     this.session = {
-      conversationId: '55b91c36-7f1d-468c-88bb-fd7d4783ab79',
       user: 'A Long',
       agent: 'Google Antigravity AI',
-      status: 'ONLINE & LINKED',
+      status: 'READY',
       workspace: WORKSPACE_DIR,
-      currentAction: 'Đang kết nối Antigravity Live Session vào Văn Phòng 3D',
-      lastPrompt: 'nhưng mà a muốn nó link với antigravity hiện tại a đang làm việc như này',
-      prompts: [
-        {
-          id: 'prompt_1',
-          text: 'phân tích dự án hiện tại đi e',
-          time: '09:17:36',
-          status: 'Hoàn tất phân tích 6 phòng ban & Three.js'
-        },
-        {
-          id: 'prompt_2',
-          text: 'kết nối API backend thật cho anh',
-          time: '09:20:50',
-          status: 'Xây dựng xong Express + WebSocket + DB persistence'
-        },
-        {
-          id: 'prompt_3',
-          text: 'nhưng mà a muốn nó link với antigravity hiện tại a đang làm việc như này',
-          time: '09:30:36',
-          status: 'Đang đồng bộ trực tiếp phiên làm việc thời gian thực'
-        }
-      ],
-      actionsHistory: [
-        { time: '09:18:00', type: 'INSPECT', detail: 'Đọc mã nguồn Three.js, React và package.json' },
-        { time: '09:19:30', type: 'INSTALL', detail: 'npm install thành công 34 packages' },
-        { time: '09:21:49', type: 'INSTALL', detail: 'Cài đặt express, ws, cors, dotenv, concurrently (89 packages)' },
-        { time: '09:23:43', type: 'CODE', detail: 'Tạo server/server.js, server/db.js, defaultData.js' },
-        { time: '09:24:29', type: 'CODE', detail: 'Xây dựng src/services/api.js WebSocket & REST client' },
-        { time: '09:26:05', type: 'DAEMON', detail: 'Khởi động Backend Server daemon tại port 3001' },
-        { time: '09:27:14', type: 'TEST', detail: 'Chạy test-api.sh kiểm thử toàn bộ endpoint (Pass 100%)' },
-        { time: '09:33:00', type: 'BRIDGE', detail: 'Kích hoạt Antigravity Live Bridge' }
-      ],
+      currentAction: 'Văn phòng đang trống • Chờ Sếp A Long giao việc',
+      lastPrompt: '',
+      prompts: [],
+      actionsHistory: [],
       stats: {
-        toolCalls: 32,
-        filesModified: 8,
-        backgroundTasks: 3,
-        gitStatus: 'Up to date with origin/main'
+        activeAgents: 0,
+        activeTasks: 0,
+        filesModified: 0,
+        gitStatus: 'Clean'
       }
     };
 
@@ -69,11 +39,25 @@ class AntigravityBridge {
   }
 
   getSession() {
+    if (this.db) {
+      this.session.stats.activeAgents = this.db.getAgents().length;
+      this.session.stats.activeTasks = this.db.getState().tasks.length;
+    }
     return this.session;
   }
 
-  // Đẩy một sự kiện từ phiên Antigravity vào 3D Office
-  pushEvent({ prompt, action, agentId = 'along', log, taskTitle, status }) {
+  resetSession() {
+    this.session.currentAction = 'Văn phòng đang trống • Chờ Sếp A Long giao việc';
+    this.session.lastPrompt = '';
+    this.session.prompts = [];
+    this.session.actionsHistory = [];
+    this.session.stats.activeAgents = 0;
+    this.session.stats.activeTasks = 0;
+    return this.session;
+  }
+
+  // Đẩy một sự kiện từ phiên Antigravity (Desktop hoặc Web) vào 3D Office
+  pushEvent({ prompt, action, agentId, agentName, agentType, roomId, log, taskTitle }) {
     const timestamp = new Date().toLocaleTimeString('vi-VN');
 
     if (prompt) {
@@ -82,22 +66,26 @@ class AntigravityBridge {
         id: 'prompt_' + Date.now(),
         text: prompt,
         time: timestamp,
-        status: action || 'Đang xử lý...'
+        status: action || 'Đang thực thi'
       });
 
-      // Cập nhật A Long trong phòng 3D
+      // Khi A Long ra lệnh, triệu hồi hoặc cập nhật nhân vật A Long trong phòng chỉ huy
       if (this.db) {
-        const found = this.db.getAgent('along');
-        if (found) {
-          found.agent.currentTask = `Chỉ đạo: "${prompt}"`;
-          found.agent.thoughts = [
-            `"${prompt}"`,
-            ...(found.agent.thoughts || [])
+        const res = this.db.spawnOrGetAgent({
+          agentId: 'along',
+          agentName: 'A Long',
+          agentType: 'boss',
+          agentRole: 'Tổng chỉ huy',
+          roomId: 'room_along'
+        });
+        if (res && res.agent) {
+          res.agent.currentTask = `Chỉ đạo: "${prompt}"`;
+          res.agent.thoughts = [`"${prompt}"`, ...(res.agent.thoughts || [])];
+          res.agent.logs = [
+            `[${timestamp}] 👑 Chỉ đạo: "${prompt}"`,
+            ...(res.agent.logs || [])
           ];
-          found.agent.logs = [
-            `[${timestamp}] Sếp A Long ra lệnh: "${prompt}"`,
-            ...(found.agent.logs || [])
-          ];
+          this.db.save();
         }
       }
     }
@@ -106,27 +94,26 @@ class AntigravityBridge {
       this.session.currentAction = action;
       this.session.actionsHistory.unshift({
         time: timestamp,
-        type: 'ACTION',
+        type: 'ANTIGRAVITY',
         detail: action
       });
-    }
-
-    if (log && agentId && this.db) {
-      this.db.addAgentLog(agentId, `[Antigravity Live] ${log}`);
     }
 
     if (taskTitle && this.db) {
       this.db.createTask({
         title: taskTitle,
-        roomId: 'room_along',
-        assignee: 'Antigravity AI Core',
-        assigneeId: 'along'
+        roomId: roomId || 'room_douyin',
+        assignee: agentName || agentId || 'Agent AI',
+        assigneeId: agentId,
+        agentType
       });
+    } else if (log && agentId && this.db) {
+      this.db.addAgentLog(agentId, log);
     }
 
     if (this.broadcastFn) {
       this.broadcastFn('ANTIGRAVITY_LIVE_SYNC', {
-        session: this.session,
+        session: this.getSession(),
         timestamp: new Date().toISOString()
       });
       if (this.db) {
@@ -134,32 +121,24 @@ class AntigravityBridge {
       }
     }
 
-    return this.session;
+    return this.getSession();
   }
 
-  // Bắt đầu background watcher theo dõi workspace và background tasks
   startWatcher() {
-    console.log('[Bridge] Khởi động Antigravity Live Watcher...');
-
-    // 1. Quét background tasks định kỳ mỗi 5 giây
     setInterval(async () => {
       try {
-        if (fs.existsSync(TASKS_DIR)) {
-          const files = fs.readdirSync(TASKS_DIR);
-          const taskLogs = files.filter(f => f.endsWith('.log'));
-          this.session.stats.backgroundTasks = taskLogs.length;
-        }
-
-        // 2. Quét git status
         const { stdout: gitOut } = await execAsync('git status --short', { cwd: WORKSPACE_DIR });
         const modifiedCount = gitOut.trim().split('\n').filter(Boolean).length;
         this.session.stats.filesModified = modifiedCount;
-
+        if (this.db) {
+          this.session.stats.activeAgents = this.db.getAgents().length;
+          this.session.stats.activeTasks = this.db.getState().tasks.length;
+        }
         if (this.broadcastFn) {
           this.broadcastFn('ANTIGRAVITY_STATS', this.session.stats);
         }
       } catch {
-        // bỏ qua lỗi định kỳ
+        // ignore
       }
     }, 5000);
   }
